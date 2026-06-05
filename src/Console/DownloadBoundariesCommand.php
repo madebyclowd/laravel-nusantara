@@ -27,6 +27,7 @@ class DownloadBoundariesCommand extends Command
     {
         $this->info('Starting geographic boundaries downloader (Phase 2)...');
         $this->warn('This feature is planned for Phase 2. Currently, only Phase 1 (Core Metadata) is active.');
+
         return self::SUCCESS;
     }
 }

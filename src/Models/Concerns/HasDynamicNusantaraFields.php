@@ -6,8 +6,6 @@ trait HasDynamicNusantaraFields
 {
     /**
      * Get the logical table name key in configuration.
-     *
-     * @return string
      */
     abstract protected function getLogicalTableName(): string;
 
@@ -65,9 +63,6 @@ trait HasDynamicNusantaraFields
 
     /**
      * Resolve the logical field name to the actual database column name.
-     *
-     * @param  string  $key
-     * @return string|null
      */
     protected function resolveDbFieldName(string $key): ?string
     {

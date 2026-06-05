@@ -62,15 +62,10 @@ class NusantaraCoreSeeder extends Seeder
 
     /**
      * Streams CSV file and inserts data in chunks.
-     *
-     * @param  string  $filePath
-     * @param  string  $tableKey
-     * @param  int  $chunkSize
-     * @return void
      */
     protected function streamCsv(string $filePath, string $tableKey, int $chunkSize = 500): void
     {
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             return;
         }
 
@@ -83,6 +78,7 @@ class NusantaraCoreSeeder extends Seeder
 
         if ($headers === false) {
             gzclose($handle);
+
             return;
         }
 

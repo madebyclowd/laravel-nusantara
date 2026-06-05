@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     /**
      * Get the database connection for the migration.
      *
@@ -171,10 +172,6 @@ return new class extends Migration {
 
     /**
      * Helper to verify if column config exists and is enabled.
-     *
-     * @param  array  $cols
-     * @param  string  $key
-     * @return bool
      */
     protected function isColEnabled(array $cols, string $key): bool
     {
@@ -184,7 +181,7 @@ return new class extends Migration {
     /**
      * Validate that the essential primary and foreign keys are enabled.
      *
-     * @throws \RuntimeException
+     * @throws RuntimeException
      */
     protected function validateConfig(): void
     {
@@ -192,17 +189,17 @@ return new class extends Migration {
             'provinces' => ['id', 'name'],
             'regencies' => ['id', 'province_id', 'name'],
             'districts' => ['id', 'regency_id', 'name'],
-            'villages'  => ['id', 'district_id', 'name'],
+            'villages' => ['id', 'district_id', 'name'],
         ];
 
         foreach ($requiredKeys as $table => $keys) {
             foreach ($keys as $key) {
                 $colConfig = config("nusantara.columns.{$table}.{$key}");
-                if (!$colConfig || !($colConfig['enabled'] ?? false)) {
-                    throw new \RuntimeException("Configuration error: Column '{$key}' in '{$table}' is required and must be enabled.");
+                if (! $colConfig || ! ($colConfig['enabled'] ?? false)) {
+                    throw new RuntimeException("Configuration error: Column '{$key}' in '{$table}' is required and must be enabled.");
                 }
                 if (empty($colConfig['name'])) {
-                    throw new \RuntimeException("Configuration error: Column '{$key}' in '{$table}' must have a valid non-empty 'name' configured.");
+                    throw new RuntimeException("Configuration error: Column '{$key}' in '{$table}' must have a valid non-empty 'name' configured.");
                 }
             }
         }

@@ -1,5 +1,10 @@
 <?php
 
+use MadeByClowd\Nusantara\Models\District;
+use MadeByClowd\Nusantara\Models\Province;
+use MadeByClowd\Nusantara\Models\Regency;
+use MadeByClowd\Nusantara\Models\Village;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -36,7 +41,7 @@ return [
         'provinces' => 'provinces',
         'regencies' => 'regencies',
         'districts' => 'districts',
-        'villages'  => 'villages',
+        'villages' => 'villages',
     ],
 
     /*
@@ -59,10 +64,10 @@ return [
     |
     */
     'models' => [
-        'province' => \MadeByClowd\Nusantara\Models\Province::class,
-        'regency'  => \MadeByClowd\Nusantara\Models\Regency::class,
-        'district' => \MadeByClowd\Nusantara\Models\District::class,
-        'village'  => \MadeByClowd\Nusantara\Models\Village::class,
+        'province' => Province::class,
+        'regency' => Regency::class,
+        'district' => District::class,
+        'village' => Village::class,
     ],
 
     /*
@@ -80,49 +85,49 @@ return [
     */
     'columns' => [
         'provinces' => [
-            'id'          => ['name' => 'id', 'enabled' => true],
-            'name'        => ['name' => 'name', 'enabled' => true],
-            'capital'     => ['name' => 'capital', 'enabled' => true],
-            'latitude'    => ['name' => 'latitude', 'enabled' => true],
-            'longitude'   => ['name' => 'longitude', 'enabled' => true],
-            'elevation'   => ['name' => 'elevation', 'enabled' => true],
-            'timezone'    => ['name' => 'timezone', 'enabled' => true],
-            'area'        => ['name' => 'area', 'enabled' => true],
-            'population'  => ['name' => 'population', 'enabled' => true],
-            'boundary'    => ['name' => 'boundary', 'enabled' => false],
+            'id' => ['name' => 'id', 'enabled' => true],
+            'name' => ['name' => 'name', 'enabled' => true],
+            'capital' => ['name' => 'capital', 'enabled' => true],
+            'latitude' => ['name' => 'latitude', 'enabled' => true],
+            'longitude' => ['name' => 'longitude', 'enabled' => true],
+            'elevation' => ['name' => 'elevation', 'enabled' => true],
+            'timezone' => ['name' => 'timezone', 'enabled' => true],
+            'area' => ['name' => 'area', 'enabled' => true],
+            'population' => ['name' => 'population', 'enabled' => true],
+            'boundary' => ['name' => 'boundary', 'enabled' => false],
         ],
 
         'regencies' => [
-            'id'          => ['name' => 'id', 'enabled' => true],
+            'id' => ['name' => 'id', 'enabled' => true],
             'province_id' => ['name' => 'province_id', 'enabled' => true],
-            'name'        => ['name' => 'name', 'enabled' => true],
-            'capital'     => ['name' => 'capital', 'enabled' => true],
-            'latitude'    => ['name' => 'latitude', 'enabled' => true],
-            'longitude'   => ['name' => 'longitude', 'enabled' => true],
-            'elevation'   => ['name' => 'elevation', 'enabled' => true],
-            'timezone'    => ['name' => 'timezone', 'enabled' => true],
-            'area'        => ['name' => 'area', 'enabled' => true],
-            'population'  => ['name' => 'population', 'enabled' => true],
-            'boundary'    => ['name' => 'boundary', 'enabled' => false],
+            'name' => ['name' => 'name', 'enabled' => true],
+            'capital' => ['name' => 'capital', 'enabled' => true],
+            'latitude' => ['name' => 'latitude', 'enabled' => true],
+            'longitude' => ['name' => 'longitude', 'enabled' => true],
+            'elevation' => ['name' => 'elevation', 'enabled' => true],
+            'timezone' => ['name' => 'timezone', 'enabled' => true],
+            'area' => ['name' => 'area', 'enabled' => true],
+            'population' => ['name' => 'population', 'enabled' => true],
+            'boundary' => ['name' => 'boundary', 'enabled' => false],
         ],
 
         'districts' => [
-            'id'          => ['name' => 'id', 'enabled' => true],
-            'regency_id'  => ['name' => 'regency_id', 'enabled' => true],
-            'name'        => ['name' => 'name', 'enabled' => true],
-            'latitude'    => ['name' => 'latitude', 'enabled' => true],
-            'longitude'   => ['name' => 'longitude', 'enabled' => true],
-            'boundary'    => ['name' => 'boundary', 'enabled' => false],
+            'id' => ['name' => 'id', 'enabled' => true],
+            'regency_id' => ['name' => 'regency_id', 'enabled' => true],
+            'name' => ['name' => 'name', 'enabled' => true],
+            'latitude' => ['name' => 'latitude', 'enabled' => true],
+            'longitude' => ['name' => 'longitude', 'enabled' => true],
+            'boundary' => ['name' => 'boundary', 'enabled' => false],
         ],
 
         'villages' => [
-            'id'          => ['name' => 'id', 'enabled' => true],
+            'id' => ['name' => 'id', 'enabled' => true],
             'district_id' => ['name' => 'district_id', 'enabled' => true],
-            'name'        => ['name' => 'name', 'enabled' => true],
+            'name' => ['name' => 'name', 'enabled' => true],
             'postal_code' => ['name' => 'postal_code', 'enabled' => true],
-            'latitude'    => ['name' => 'latitude', 'enabled' => true],
-            'longitude'   => ['name' => 'longitude', 'enabled' => true],
-            'boundary'    => ['name' => 'boundary', 'enabled' => false],
+            'latitude' => ['name' => 'latitude', 'enabled' => true],
+            'longitude' => ['name' => 'longitude', 'enabled' => true],
+            'boundary' => ['name' => 'boundary', 'enabled' => false],
         ],
     ],
 
@@ -139,8 +144,8 @@ return [
     */
     'cache' => [
         'enabled' => true,
-        'ttl'     => 86400,
-        'prefix'  => 'nusantara',
+        'ttl' => 86400,
+        'prefix' => 'nusantara',
     ],
 
     /*
@@ -155,8 +160,8 @@ return [
     |
     */
     'api' => [
-        'enabled'    => false,
-        'prefix'     => 'api/nusantara',
+        'enabled' => false,
+        'prefix' => 'api/nusantara',
         'middleware' => ['api', 'throttle:60,1'],
     ],
 ];

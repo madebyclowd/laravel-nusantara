@@ -2,6 +2,8 @@
 
 namespace MadeByClowd\Nusantara;
 
+use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use MadeByClowd\Nusantara\Console\DownloadBoundariesCommand;
 
@@ -15,7 +17,7 @@ class NusantaraServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/nusantara.php', 'nusantara');
 
         $this->app->singleton('nusantara', function ($app) {
-            return new NusantaraService();
+            return new NusantaraService;
         });
     }
 
@@ -55,9 +57,9 @@ class NusantaraServiceProvider extends ServiceProvider
             ]);
 
             // Automatically push our AI agent skill on boost install/update
-            \Illuminate\Support\Facades\Event::listen(
-                \Illuminate\Console\Events\CommandFinished::class,
-                function (\Illuminate\Console\Events\CommandFinished $event) {
+            Event::listen(
+                CommandFinished::class,
+                function (CommandFinished $event) {
                     if (in_array($event->command, ['boost:install', 'boost:update'])) {
                         $this->autoPublishBoostSkills();
                     }
@@ -72,7 +74,7 @@ class NusantaraServiceProvider extends ServiceProvider
     protected function autoPublishBoostSkills(): void
     {
         $source = __DIR__.'/../resources/boost/skills/laravel-nusantara/SKILL.md';
-        if (!file_exists($source)) {
+        if (! file_exists($source)) {
             return;
         }
 
@@ -91,7 +93,7 @@ class NusantaraServiceProvider extends ServiceProvider
         }
 
         foreach ($targets as $destination) {
-            if (!is_dir(dirname($destination))) {
+            if (! is_dir(dirname($destination))) {
                 mkdir(dirname($destination), 0755, true);
             }
             copy($source, $destination);
@@ -102,7 +104,7 @@ class NusantaraServiceProvider extends ServiceProvider
         if (file_exists($boostJsonPath)) {
             $boostJson = json_decode(file_get_contents($boostJsonPath), true);
             if (is_array($boostJson) && isset($boostJson['skills'])) {
-                if (!in_array('laravel-nusantara', $boostJson['skills'])) {
+                if (! in_array('laravel-nusantara', $boostJson['skills'])) {
                     $boostJson['skills'][] = 'laravel-nusantara';
                     file_put_contents(
                         $boostJsonPath,

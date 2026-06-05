@@ -19,7 +19,6 @@ class Province extends Model
     /**
      * Create a new Eloquent model instance.
      *
-     * @param  array  $attributes
      * @return void
      */
     public function __construct(array $attributes = [])
@@ -30,7 +29,7 @@ class Province extends Model
         $this->setKeyName(config('nusantara.columns.provinces.id.name', 'id'));
         $this->setKeyType('string');
         $this->incrementing = false;
-        
+
         $connectionName = config('nusantara.connection');
         if ($connectionName) {
             $this->setConnection($connectionName);
@@ -39,8 +38,6 @@ class Province extends Model
 
     /**
      * Get the logical table name key in configuration.
-     *
-     * @return string
      */
     protected function getLogicalTableName(): string
     {
@@ -104,8 +101,8 @@ class Province extends Model
 
         return (new $villageModel)->newQuery()
             ->select("{$villageTable}.*")
-            ->join($districtTable, "{$villageTable}.{$villageDistrictIdCol}", "=", "{$districtTable}.{$districtIdCol}")
-            ->join($regencyTable, "{$districtTable}.{$districtRegencyIdCol}", "=", "{$regencyTable}.{$regencyIdCol}")
-            ->where("{$regencyTable}.{$regencyProvinceIdCol}", "=", $this->getKey());
+            ->join($districtTable, "{$villageTable}.{$villageDistrictIdCol}", '=', "{$districtTable}.{$districtIdCol}")
+            ->join($regencyTable, "{$districtTable}.{$districtRegencyIdCol}", '=', "{$regencyTable}.{$regencyIdCol}")
+            ->where("{$regencyTable}.{$regencyProvinceIdCol}", '=', $this->getKey());
     }
 }

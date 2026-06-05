@@ -2,15 +2,16 @@
 
 namespace MadeByClowd\Nusantara\Tests;
 
-use Orchestra\Testbench\TestCase as OrchestraTestCase;
+use Illuminate\Foundation\Application;
 use MadeByClowd\Nusantara\NusantaraServiceProvider;
+use Orchestra\Testbench\TestCase as OrchestraTestCase;
 
 abstract class TestCase extends OrchestraTestCase
 {
     /**
      * Get package providers.
      *
-     * @param  \Illuminate\Foundation\Application  $app
+     * @param  Application  $app
      * @return array
      */
     protected function getPackageProviders($app)
@@ -23,7 +24,7 @@ abstract class TestCase extends OrchestraTestCase
     /**
      * Define environment setup.
      *
-     * @param  \Illuminate\Foundation\Application  $app
+     * @param  Application  $app
      * @return void
      */
     protected function getEnvironmentSetUp($app)
@@ -31,9 +32,9 @@ abstract class TestCase extends OrchestraTestCase
         // Setup default database to use sqlite in-memory
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
-            'driver'   => 'sqlite',
+            'driver' => 'sqlite',
             'database' => ':memory:',
-            'prefix'   => '',
+            'prefix' => '',
         ]);
 
         // Enable API routes for test coverage

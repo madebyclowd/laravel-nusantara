@@ -2,13 +2,17 @@
 
 namespace MadeByClowd\Nusantara\Tests\Feature;
 
-use MadeByClowd\Nusantara\Tests\TestCase;
+use Illuminate\Console\Events\CommandFinished;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Schema;
+use MadeByClowd\Nusantara\Facades\Nusantara;
 use MadeByClowd\Nusantara\Models\Province;
 use MadeByClowd\Nusantara\Models\Regency;
-use MadeByClowd\Nusantara\Models\District;
-use MadeByClowd\Nusantara\Models\Village;
 use MadeByClowd\Nusantara\Seeders\NusantaraCoreSeeder;
-use Illuminate\Support\Facades\Schema;
+use MadeByClowd\Nusantara\Tests\TestCase;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
 
 class SeedingAndMigrationTest extends TestCase
 {
@@ -127,19 +131,19 @@ class SeedingAndMigrationTest extends TestCase
         $this->seed(NusantaraCoreSeeder::class);
 
         // Test Facade provinces()
-        $provinces = \MadeByClowd\Nusantara\Facades\Nusantara::provinces();
+        $provinces = Nusantara::provinces();
         $this->assertCount(38, $provinces);
 
         // Test Facade findProvince()
-        $province = \MadeByClowd\Nusantara\Facades\Nusantara::findProvince('11');
+        $province = Nusantara::findProvince('11');
         $this->assertEquals('Aceh', $province->name);
 
         // Test Facade regenciesOf()
-        $regencies = \MadeByClowd\Nusantara\Facades\Nusantara::regenciesOf('11');
+        $regencies = Nusantara::regenciesOf('11');
         $this->assertNotEmpty($regencies);
 
         // Test Facade search()
-        $searchResult = \MadeByClowd\Nusantara\Facades\Nusantara::search('Aceh');
+        $searchResult = Nusantara::search('Aceh');
         $this->assertNotEmpty($searchResult['provinces']);
         $this->assertEquals('Aceh', $searchResult['provinces'][0]['name']);
     }
@@ -154,15 +158,15 @@ class SeedingAndMigrationTest extends TestCase
         config(['nusantara.cache.enabled' => true]);
 
         // Trigger query (stores in cache)
-        $provinces = \MadeByClowd\Nusantara\Facades\Nusantara::provinces();
+        $provinces = Nusantara::provinces();
         $this->assertCount(38, $provinces);
 
         // Assert cache key exists
         $prefix = config('nusantara.cache.prefix');
         try {
-            $hasCache = \Illuminate\Support\Facades\Cache::tags([$prefix])->has("{$prefix}.provinces");
+            $hasCache = Cache::tags([$prefix])->has("{$prefix}.provinces");
         } catch (\BadMethodCallException $e) {
-            $hasCache = \Illuminate\Support\Facades\Cache::has("{$prefix}.provinces");
+            $hasCache = Cache::has("{$prefix}.provinces");
         }
         $this->assertTrue($hasCache);
     }
@@ -208,17 +212,17 @@ class SeedingAndMigrationTest extends TestCase
 
         // Create a dummy boost.json to verify auto-registration
         file_put_contents($boostJsonPath, json_encode([
-            'skills' => ['laravel-best-practices']
+            'skills' => ['laravel-best-practices'],
         ]));
 
         $this->assertFileDoesNotExist($targetSkillPath);
 
         // Dispatch the CommandFinished event for boost:install
-        \Illuminate\Support\Facades\Event::dispatch(
-            new \Illuminate\Console\Events\CommandFinished(
+        Event::dispatch(
+            new CommandFinished(
                 'boost:install',
-                new \Symfony\Component\Console\Input\ArrayInput([]),
-                new \Symfony\Component\Console\Output\NullOutput(),
+                new ArrayInput([]),
+                new NullOutput,
                 0
             )
         );

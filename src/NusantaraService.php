@@ -3,14 +3,13 @@
 namespace MadeByClowd\Nusantara;
 
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
 class NusantaraService
 {
     /**
      * Get the configured Province model class name.
-     *
-     * @return string
      */
     public function getProvinceModel(): string
     {
@@ -19,8 +18,6 @@ class NusantaraService
 
     /**
      * Get the configured Regency model class name.
-     *
-     * @return string
      */
     public function getRegencyModel(): string
     {
@@ -29,8 +26,6 @@ class NusantaraService
 
     /**
      * Get the configured District model class name.
-     *
-     * @return string
      */
     public function getDistrictModel(): string
     {
@@ -39,8 +34,6 @@ class NusantaraService
 
     /**
      * Get the configured Village model class name.
-     *
-     * @return string
      */
     public function getVillageModel(): string
     {
@@ -49,8 +42,6 @@ class NusantaraService
 
     /**
      * Fetch all provinces.
-     *
-     * @return \Illuminate\Database\Eloquent\Collection
      */
     public function provinces(): Collection
     {
@@ -62,8 +53,7 @@ class NusantaraService
     /**
      * Fetch a province by ID.
      *
-     * @param  string  $id
-     * @return \Illuminate\Database\Eloquent\Model|null
+     * @return Model|null
      */
     public function findProvince(string $id)
     {
@@ -74,23 +64,20 @@ class NusantaraService
 
     /**
      * Fetch regencies of a province.
-     *
-     * @param  string  $provinceId
-     * @return \Illuminate\Database\Eloquent\Collection
      */
     public function regenciesOf(string $provinceId): Collection
     {
         return $this->remember("regencies.{$provinceId}", function () use ($provinceId) {
             $province = $this->findProvince($provinceId);
-            return $province ? $province->regencies : new Collection();
+
+            return $province ? $province->regencies : new Collection;
         });
     }
 
     /**
      * Fetch a regency by ID.
      *
-     * @param  string  $id
-     * @return \Illuminate\Database\Eloquent\Model|null
+     * @return Model|null
      */
     public function findRegency(string $id)
     {
@@ -101,23 +88,20 @@ class NusantaraService
 
     /**
      * Fetch districts of a regency.
-     *
-     * @param  string  $regencyId
-     * @return \Illuminate\Database\Eloquent\Collection
      */
     public function districtsOf(string $regencyId): Collection
     {
         return $this->remember("districts.{$regencyId}", function () use ($regencyId) {
             $regency = $this->findRegency($regencyId);
-            return $regency ? $regency->districts : new Collection();
+
+            return $regency ? $regency->districts : new Collection;
         });
     }
 
     /**
      * Fetch a district by ID.
      *
-     * @param  string  $id
-     * @return \Illuminate\Database\Eloquent\Model|null
+     * @return Model|null
      */
     public function findDistrict(string $id)
     {
@@ -128,23 +112,20 @@ class NusantaraService
 
     /**
      * Fetch villages of a district.
-     *
-     * @param  string  $districtId
-     * @return \Illuminate\Database\Eloquent\Collection
      */
     public function villagesOf(string $districtId): Collection
     {
         return $this->remember("villages.{$districtId}", function () use ($districtId) {
             $district = $this->findDistrict($districtId);
-            return $district ? $district->villages : new Collection();
+
+            return $district ? $district->villages : new Collection;
         });
     }
 
     /**
      * Fetch a village by ID.
      *
-     * @param  string  $id
-     * @return \Illuminate\Database\Eloquent\Model|null
+     * @return Model|null
      */
     public function findVillage(string $id)
     {
@@ -155,10 +136,6 @@ class NusantaraService
 
     /**
      * Search regional names dynamically across all levels.
-     *
-     * @param  string  $query
-     * @param  int  $limit
-     * @return array
      */
     public function search(string $query, int $limit = 20): array
     {
@@ -167,23 +144,23 @@ class NusantaraService
             return [];
         }
 
-        return $this->remember("search." . md5($query) . ".{$limit}", function () use ($query, $limit) {
+        return $this->remember('search.'.md5($query).".{$limit}", function () use ($query, $limit) {
             $results = [
                 'provinces' => [],
                 'regencies' => [],
                 'districts' => [],
-                'villages'  => [],
+                'villages' => [],
             ];
 
             $provName = config('nusantara.columns.provinces.name.name', 'name');
-            $regName  = config('nusantara.columns.regencies.name.name', 'name');
+            $regName = config('nusantara.columns.regencies.name.name', 'name');
             $distName = config('nusantara.columns.districts.name.name', 'name');
-            $vilName  = config('nusantara.columns.villages.name.name', 'name');
+            $vilName = config('nusantara.columns.villages.name.name', 'name');
 
             $results['provinces'] = $this->getProvinceModel()::where($provName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
             $results['regencies'] = $this->getRegencyModel()::where($regName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
             $results['districts'] = $this->getDistrictModel()::where($distName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
-            $results['villages']  = $this->getVillageModel()::where($vilName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
+            $results['villages'] = $this->getVillageModel()::where($vilName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
 
             return $results;
         });
@@ -191,8 +168,6 @@ class NusantaraService
 
     /**
      * Clear all cached regional queries.
-     *
-     * @return bool
      */
     public function clearCache(): bool
     {
@@ -201,27 +176,27 @@ class NusantaraService
         if (config('nusantara.cache.enabled', true)) {
             try {
                 Cache::tags([$prefix])->flush();
+
                 return true;
             } catch (\BadMethodCallException $e) {
                 // Fallback to flushing entire cache if tags are unsupported
                 return Cache::flush();
             }
         }
+
         return false;
     }
 
     /**
      * Helper to wrap cache remembers.
      *
-     * @param  string  $key
-     * @param  \Closure  $callback
      * @return mixed
      */
     protected function remember(string $key, \Closure $callback)
     {
         $enabled = config('nusantara.cache.enabled', true);
 
-        if (!$enabled) {
+        if (! $enabled) {
             return $callback();
         }
 

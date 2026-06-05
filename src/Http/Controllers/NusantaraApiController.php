@@ -2,6 +2,7 @@
 
 namespace MadeByClowd\Nusantara\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use MadeByClowd\Nusantara\Facades\Nusantara;
@@ -11,7 +12,7 @@ class NusantaraApiController extends Controller
     /**
      * Get all provinces.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function provinces()
     {
@@ -21,8 +22,7 @@ class NusantaraApiController extends Controller
     /**
      * Get regencies of a province.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function regencies(Request $request)
     {
@@ -36,8 +36,7 @@ class NusantaraApiController extends Controller
     /**
      * Get districts of a regency.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function districts(Request $request)
     {
@@ -51,8 +50,7 @@ class NusantaraApiController extends Controller
     /**
      * Get villages of a district.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function villages(Request $request)
     {
@@ -66,8 +64,7 @@ class NusantaraApiController extends Controller
     /**
      * Search region names dynamically across all levels.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function search(Request $request)
     {

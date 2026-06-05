@@ -19,7 +19,6 @@ class Village extends Model
     /**
      * Create a new Eloquent model instance.
      *
-     * @param  array  $attributes
      * @return void
      */
     public function __construct(array $attributes = [])
@@ -39,8 +38,6 @@ class Village extends Model
 
     /**
      * Get the logical table name key in configuration.
-     *
-     * @return string
      */
     protected function getLogicalTableName(): string
     {
