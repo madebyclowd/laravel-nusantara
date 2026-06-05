@@ -68,11 +68,11 @@ class BoundariesTest extends TestCase
             $wktPolygon
         );
 
-        // Test MultiPolygon conversion
-        $jsonMultiPolygon = '[[[[2.079098,97.077157],[2.090249,97.083166]],[[2.091450,97.098615],[2.095000,97.100000]]]]';
+        // Test MultiPolygon conversion (each ring needs >= 3 distinct points for PostGIS)
+        $jsonMultiPolygon = '[[[[2.079098,97.077157],[2.090249,97.083166],[2.09145,97.098615]],[[2.1,97.1],[2.2,97.2],[2.3,97.3]]]]';
         $wktMultiPolygon = $method->invoke($command, $jsonMultiPolygon);
         $this->assertEquals(
-            'MULTIPOLYGON(((97.077157 2.079098, 97.083166 2.090249, 97.077157 2.079098), (97.098615 2.09145, 97.1 2.095, 97.098615 2.09145)))',
+            'MULTIPOLYGON(((97.077157 2.079098, 97.083166 2.090249, 97.098615 2.09145, 97.077157 2.079098), (97.1 2.1, 97.2 2.2, 97.3 2.3, 97.1 2.1)))',
             $wktMultiPolygon
         );
     }

@@ -193,14 +193,17 @@ return new class extends Migration
         }
 
         if ($storageType === 'spatial') {
-            $table->geometry($colName)->nullable();
+            // PostgreSQL uses an explicit SRID 4326 geometry type; other drivers use the default geometry.
+            if ($driver === 'pgsql') {
+                $table->geometry($colName, 'GEOMETRY', 4326)->nullable();
+            } else {
+                $table->geometry($colName)->nullable();
+            }
 
-            // SQL Server, PostgreSQL, and MySQL support spatial indexes.
-            // Standard SQLite does not support standard blueprint spatialIndex() and throws an error.
-            if (config('nusantara.boundaries.spatial_index', true)) {
-                if ($driver !== 'sqlite') {
-                    $table->spatialIndex($colName);
-                }
+            // MySQL requires spatial index columns to be NOT NULL, so we only add spatial indexes
+            // on PostgreSQL. SQLite (SpatiaLite) is also excluded due to blueprint incompatibility.
+            if (config('nusantara.boundaries.spatial_index', true) && $driver === 'pgsql') {
+                $table->spatialIndex($colName);
             }
         } else {
             $table->longText($colName)->nullable();

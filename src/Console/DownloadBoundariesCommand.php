@@ -243,14 +243,7 @@ class DownloadBoundariesCommand extends Command
             $this->warn("Column '{$boundaryColName}' does not exist in table '{$tableName}'.");
             if ($this->confirm("Would you like to add the '{$boundaryColName}' column to table '{$tableName}' now?", true)) {
                 $schema->table($tableName, function (Blueprint $table) use ($boundaryColName, $driver, $storageType) {
-                    if ($storageType === 'spatial') {
-                        $table->geometry($boundaryColName)->nullable();
-                        if (config('nusantara.boundaries.spatial_index', true) && $driver !== 'sqlite') {
-                            $table->spatialIndex($boundaryColName);
-                        }
-                    } else {
-                        $table->longText($boundaryColName)->nullable();
-                    }
+                    $this->applyBoundaryColumn($table, $boundaryColName, $driver, $storageType);
                 });
                 $this->info("Column '{$boundaryColName}' added successfully to '{$tableName}'.");
             } else {
@@ -273,14 +266,7 @@ class DownloadBoundariesCommand extends Command
                         $table->dropColumn($boundaryColName);
                     });
                     $schema->table($tableName, function (Blueprint $table) use ($boundaryColName, $driver, $storageType) {
-                        if ($storageType === 'spatial') {
-                            $table->geometry($boundaryColName)->nullable();
-                            if (config('nusantara.boundaries.spatial_index', true) && $driver !== 'sqlite') {
-                                $table->spatialIndex($boundaryColName);
-                            }
-                        } else {
-                            $table->longText($boundaryColName)->nullable();
-                        }
+                        $this->applyBoundaryColumn($table, $boundaryColName, $driver, $storageType);
                     });
                     $this->info("Column '{$boundaryColName}' recreated as '{$desiredType}' in '{$tableName}'.");
                 } else {
@@ -364,6 +350,28 @@ class DownloadBoundariesCommand extends Command
                     ->update([$boundaryCol => $updateVal]);
             }
         });
+    }
+
+    /**
+     * Add the boundary geometry column to a table blueprint.
+     * PostgreSQL uses an explicit SRID 4326; other drivers use the default geometry type.
+     * MySQL requires NOT NULL for spatial indexes, so we only add spatial indexes on PostgreSQL.
+     */
+    protected function applyBoundaryColumn(Blueprint $table, string $colName, string $driver, string $storageType): void
+    {
+        if ($storageType === 'spatial') {
+            if ($driver === 'pgsql') {
+                $table->geometry($colName, 'GEOMETRY', 4326)->nullable();
+            } else {
+                $table->geometry($colName)->nullable();
+            }
+
+            if (config('nusantara.boundaries.spatial_index', true) && $driver === 'pgsql') {
+                $table->spatialIndex($colName);
+            }
+        } else {
+            $table->longText($colName)->nullable();
+        }
     }
 
     /**
