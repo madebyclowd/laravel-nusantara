@@ -1,5 +1,5 @@
 ---
-name: laravel-nusantara-development
+name: laravel-nusantara
 description: "Use this skill for madebyclowd/laravel-nusantara package in Laravel applications. ALWAYS use this skill when interacting with Indonesia's administrative regions database, models, facades, seeders, or API endpoints. Trigger when: querying, searching, or displaying provinces, regencies, districts, or villages; performing migration/seeding customization; accessing dynamic relation traits; writing custom queries for custom table/column mappings; configuring API middleware; or running php artisan nusantara:install. Covers: HasDynamicNusantaraFields, Nusantara facade, caching, API controllers, and schema overrides. Do not use for frontend-only tasks"
 license: MIT
 metadata:
