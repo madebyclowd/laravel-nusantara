@@ -192,4 +192,33 @@ class SeedingAndMigrationTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonFragment(['name' => 'Aceh']);
     }
+
+    /** @test */
+    public function it_automatically_publishes_boost_skills_when_boost_commands_run()
+    {
+        $targetSkillPath = base_path('.github/skills/laravel-nusantara.md');
+
+        if (file_exists($targetSkillPath)) {
+            unlink($targetSkillPath);
+        }
+
+        $this->assertFileDoesNotExist($targetSkillPath);
+
+        // Dispatch the CommandFinished event for boost:install
+        \Illuminate\Support\Facades\Event::dispatch(
+            new \Illuminate\Console\Events\CommandFinished(
+                'boost:install',
+                new \Symfony\Component\Console\Input\ArrayInput([]),
+                new \Symfony\Component\Console\Output\NullOutput(),
+                0
+            )
+        );
+
+        $this->assertFileExists($targetSkillPath);
+
+        // Cleanup
+        if (file_exists($targetSkillPath)) {
+            unlink($targetSkillPath);
+        }
+    }
 }

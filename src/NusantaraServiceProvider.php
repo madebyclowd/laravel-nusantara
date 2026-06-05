@@ -43,11 +43,42 @@ class NusantaraServiceProvider extends ServiceProvider
                 __DIR__.'/../database/migrations' => database_path('migrations'),
             ], 'nusantara-migrations');
 
+            // Allow publishing of Laravel Boost skills
+            $this->publishes([
+                __DIR__.'/../resources/boost/skills' => base_path('.github/skills'),
+            ], 'nusantara-boost-skills');
+
             // Register Artisan commands
             $this->commands([
                 DownloadBoundariesCommand::class,
                 Console\NusantaraInstallCommand::class,
             ]);
+
+            // Automatically push our AI agent skill on boost install/update
+            \Illuminate\Support\Facades\Event::listen(
+                \Illuminate\Console\Events\CommandFinished::class,
+                function (\Illuminate\Console\Events\CommandFinished $event) {
+                    if (in_array($event->command, ['boost:install', 'boost:update'])) {
+                        $this->autoPublishBoostSkills();
+                    }
+                }
+            );
+        }
+    }
+
+    /**
+     * Automatically copy Boost skill markdown to project repository.
+     */
+    protected function autoPublishBoostSkills(): void
+    {
+        $source = __DIR__.'/../resources/boost/skills/laravel-nusantara.md';
+        $destination = base_path('.github/skills/laravel-nusantara.md');
+
+        if (file_exists($source)) {
+            if (!is_dir(dirname($destination))) {
+                mkdir(dirname($destination), 0755, true);
+            }
+            copy($source, $destination);
         }
     }
 
