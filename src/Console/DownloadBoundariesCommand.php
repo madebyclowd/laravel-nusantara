@@ -376,19 +376,23 @@ class DownloadBoundariesCommand extends Command
 
     /**
      * Get the spatial SQL expression depending on database driver.
+     *
+     * PostgreSQL uses ST_GeomFromText with SRID 4326 (WGS 84), treating coordinates as X Y (lon lat).
+     * MySQL enforces the SRS axis order for SRID 4326 (lat, lon per the SRS definition), which would
+     * reject our lon-lat WKT. MySQL also creates the geometry column with SRID 0, so we use SRID 0
+     * here to match the column type and skip geographic axis-order validation.
      */
     protected function getSpatialExpression(string $wkt, string $driver)
     {
         if ($driver === 'sqlsrv') {
-            // For SQL Server geometry, STGeomFromText requires SRID.
-            // Using 4326 (WGS 84 GPS standard coordinates)
             return DB::raw("geometry::STGeomFromText('{$wkt}', 4326)");
         }
-        if ($driver === 'mysql' || $driver === 'pgsql') {
+
+        if ($driver === 'pgsql') {
             return DB::raw("ST_GeomFromText('{$wkt}', 4326)");
         }
 
-        // SQLite SpatiaLite
+        // MySQL and SQLite SpatiaLite: use SRID 0 to avoid geographic axis-order enforcement.
         return DB::raw("ST_GeomFromText('{$wkt}')");
     }
 
