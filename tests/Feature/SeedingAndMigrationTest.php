@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Schema;
 class SeedingAndMigrationTest extends TestCase
 {
     /** @test */
-    public function it_can_run_migrations_and_seed_data_with_defaults()
+    public function test_it_can_run_migrations_and_seed_data_with_defaults()
     {
         // Run fresh migrations
         $this->artisan('migrate:fresh')->run();
@@ -44,7 +44,7 @@ class SeedingAndMigrationTest extends TestCase
     }
 
     /** @test */
-    public function it_can_run_migrations_and_seed_data_with_custom_configurations()
+    public function test_it_can_run_migrations_and_seed_data_with_custom_configurations()
     {
         // Override configuration dynamically
         config(['nusantara.tables.provinces' => 'custom_provinces']);
@@ -96,7 +96,7 @@ class SeedingAndMigrationTest extends TestCase
     }
 
     /** @test */
-    public function it_has_has_many_through_relationships_working()
+    public function test_it_has_has_many_through_relationships_working()
     {
         $this->artisan('migrate:fresh')->run();
         $this->seed(NusantaraCoreSeeder::class);
@@ -121,7 +121,7 @@ class SeedingAndMigrationTest extends TestCase
     }
 
     /** @test */
-    public function it_can_query_and_search_using_the_facade()
+    public function test_it_can_query_and_search_using_the_facade()
     {
         $this->artisan('migrate:fresh')->run();
         $this->seed(NusantaraCoreSeeder::class);
@@ -145,7 +145,7 @@ class SeedingAndMigrationTest extends TestCase
     }
 
     /** @test */
-    public function it_caches_query_results_correctly()
+    public function test_it_caches_query_results_correctly()
     {
         $this->artisan('migrate:fresh')->run();
         $this->seed(NusantaraCoreSeeder::class);
@@ -168,7 +168,7 @@ class SeedingAndMigrationTest extends TestCase
     }
 
     /** @test */
-    public function it_can_fetch_regions_via_json_api_endpoints()
+    public function test_it_can_fetch_regions_via_json_api_endpoints()
     {
         $this->artisan('migrate:fresh')->run();
         $this->seed(NusantaraCoreSeeder::class);
@@ -194,7 +194,7 @@ class SeedingAndMigrationTest extends TestCase
     }
 
     /** @test */
-    public function it_automatically_publishes_boost_skills_when_boost_commands_run()
+    public function test_it_automatically_publishes_boost_skills_when_boost_commands_run()
     {
         $targetSkillPath = base_path('.github/skills/laravel-nusantara/SKILL.md');
         $boostJsonPath = base_path('boost.json');
