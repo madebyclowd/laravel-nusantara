@@ -217,6 +217,10 @@ composer install
 vendor/bin/phpunit
 ```
 
+## Credits
+
+* Raw Indonesia regional administrative data (before normalization) compiled by [cahyadsn](https://github.com/cahyadsn).
+
 ---
 
 ## 📄 License
