@@ -1,0 +1,51 @@
+{
+    "name": "madebyclowd/laravel-nusantara",
+    "description": "Indonesia administrative regions database (provinces, regencies, districts, villages) for Laravel.",
+    "license": "MIT",
+    "keywords": [
+        "indonesia",
+        "wilayah",
+        "administrative",
+        "regions",
+        "provinces",
+        "regencies",
+        "districts",
+        "villages",
+        "laravel",
+        "seeder",
+        "database"
+    ],
+    "authors": [
+        {
+            "name": "I Gede Widiantara",
+            "email": "widiantara@clowdlab.com",
+            "homepage": "https://github.com/wawanwidiantara"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/database": "^10.0|^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0",
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "MadeByClowd\\Nusantara\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MadeByClowd\\Nusantara\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "MadeByClowd\\Nusantara\\NusantaraServiceProvider"
+            ]
+        }
+    }
+}
