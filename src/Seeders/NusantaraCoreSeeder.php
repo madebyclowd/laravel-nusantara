@@ -72,6 +72,7 @@ class NusantaraCoreSeeder extends Seeder
         $tableName = config("nusantara.tables.{$tableKey}");
         $columnConfigs = config("nusantara.columns.{$tableKey}");
         $connection = config('nusantara.connection');
+        $driver = DB::connection($connection)->getDriverName();
 
         $handle = gzopen($filePath, 'r');
         $headers = fgetcsv($handle);
@@ -83,6 +84,8 @@ class NusantaraCoreSeeder extends Seeder
         }
 
         $batch = [];
+        $effectiveChunkSize = $chunkSize;
+
         while (($row = fgetcsv($handle)) !== false) {
             // Protect against empty or malformed rows
             if (count($headers) !== count($row)) {
@@ -100,9 +103,17 @@ class NusantaraCoreSeeder extends Seeder
                 }
             }
 
+            // SQL Server supports a maximum of 2100 parameters per statement.
+            // Recalculate the effective chunk size once we know the column count.
+            if ($effectiveChunkSize === $chunkSize && ! empty($dbRecord) && $driver === 'sqlsrv') {
+                $colCount = count($dbRecord);
+                $effectiveChunkSize = $colCount > 0 ? (int) floor(2000 / $colCount) : $chunkSize;
+                $effectiveChunkSize = max(1, $effectiveChunkSize);
+            }
+
             $batch[] = $dbRecord;
 
-            if (count($batch) >= $chunkSize) {
+            if (count($batch) >= $effectiveChunkSize) {
                 DB::connection($connection)->table($tableName)->insert($batch);
                 $batch = [];
             }
