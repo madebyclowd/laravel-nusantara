@@ -256,6 +256,39 @@ class DownloadBoundariesCommand extends Command
             } else {
                 throw new \RuntimeException("Aborted: Column '{$boundaryColName}' is missing from table '{$tableName}'.");
             }
+        } else {
+            // Column exists — check for type mismatch between desired storage type and actual column type.
+            // This can happen when: PostGIS was unavailable on first run (created as text), then later enabled.
+            $columnType = strtolower($schema->getColumnType($tableName, $boundaryColName));
+            $isSpatialColumn = str_contains($columnType, 'geometry') || str_contains($columnType, 'geography');
+
+            $needsUpgrade = $storageType === 'spatial' && ! $isSpatialColumn;
+            $needsDowngrade = $storageType === 'text' && $isSpatialColumn;
+
+            if ($needsUpgrade || $needsDowngrade) {
+                $desiredType = $storageType === 'spatial' ? 'geometry (spatial)' : 'text';
+                $this->warn("Column '{$boundaryColName}' in table '{$tableName}' is type '{$columnType}' but desired storage is '{$desiredType}'.");
+                if ($this->confirm("Would you like to recreate the '{$boundaryColName}' column as '{$desiredType}'? (Existing boundary data will be cleared)", true)) {
+                    $schema->table($tableName, function (Blueprint $table) use ($boundaryColName) {
+                        $table->dropColumn($boundaryColName);
+                    });
+                    $schema->table($tableName, function (Blueprint $table) use ($boundaryColName, $driver, $storageType) {
+                        if ($storageType === 'spatial') {
+                            $table->geometry($boundaryColName)->nullable();
+                            if (config('nusantara.boundaries.spatial_index', true) && $driver !== 'sqlite') {
+                                $table->spatialIndex($boundaryColName);
+                            }
+                        } else {
+                            $table->longText($boundaryColName)->nullable();
+                        }
+                    });
+                    $this->info("Column '{$boundaryColName}' recreated as '{$desiredType}' in '{$tableName}'.");
+                } else {
+                    $this->warn("Skipping '{$tableName}': column type mismatch not resolved. Boundaries may not be stored correctly.");
+
+                    return;
+                }
+            }
         }
 
         $handle = gzopen($filePath, 'r');
