@@ -219,7 +219,7 @@ vendor/bin/phpunit
 
 ## Credits
 
-* Raw Indonesia regional administrative data (before normalization) compiled by [cahyadsn](https://github.com/cahyadsn).
+* Special thanks to [cahyadsn](https://github.com/cahyadsn) for compiling the raw Indonesia administrative data used as the source for this package's dataset.
 
 ---
 
