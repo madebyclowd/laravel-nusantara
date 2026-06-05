@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -56,7 +57,7 @@ return new class extends Migration
                 $table->double($cols['population']['name'])->nullable();
             }
             if ($this->isColEnabled($cols, 'boundary')) {
-                $table->longText($cols['boundary']['name'])->nullable();
+                $this->addBoundaryColumn($table, $cols['boundary']['name']);
             }
         });
 
@@ -90,7 +91,7 @@ return new class extends Migration
                 $table->double($cols['population']['name'])->nullable();
             }
             if ($this->isColEnabled($cols, 'boundary')) {
-                $table->longText($cols['boundary']['name'])->nullable();
+                $this->addBoundaryColumn($table, $cols['boundary']['name']);
             }
 
             if ($enableForeignKeys) {
@@ -116,7 +117,7 @@ return new class extends Migration
                 $table->double($cols['longitude']['name'])->nullable();
             }
             if ($this->isColEnabled($cols, 'boundary')) {
-                $table->longText($cols['boundary']['name'])->nullable();
+                $this->addBoundaryColumn($table, $cols['boundary']['name']);
             }
 
             if ($enableForeignKeys) {
@@ -145,7 +146,7 @@ return new class extends Migration
                 $table->double($cols['longitude']['name'])->nullable();
             }
             if ($this->isColEnabled($cols, 'boundary')) {
-                $table->longText($cols['boundary']['name'])->nullable();
+                $this->addBoundaryColumn($table, $cols['boundary']['name']);
             }
 
             if ($enableForeignKeys) {
@@ -176,6 +177,29 @@ return new class extends Migration
     protected function isColEnabled(array $cols, string $key): bool
     {
         return isset($cols[$key]) && ($cols[$key]['enabled'] ?? false);
+    }
+
+    /**
+     * Add the boundary column based on configuration.
+     */
+    protected function addBoundaryColumn(Blueprint $table, string $colName): void
+    {
+        $storageType = config('nusantara.boundaries.type', 'spatial');
+
+        if ($storageType === 'spatial') {
+            $table->geometry($colName)->nullable();
+
+            // SQL Server, PostgreSQL, and MySQL support spatial indexes.
+            // Standard SQLite does not support standard blueprint spatialIndex() and throws an error.
+            if (config('nusantara.boundaries.spatial_index', true)) {
+                $driver = DB::connection($this->getConnection())->getDriverName();
+                if ($driver !== 'sqlite') {
+                    $table->spatialIndex($colName);
+                }
+            }
+        } else {
+            $table->longText($colName)->nullable();
+        }
     }
 
     /**

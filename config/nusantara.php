@@ -164,4 +164,31 @@ return [
         'prefix' => 'api/nusantara',
         'middleware' => ['api', 'throttle:60,1'],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Phase 2 GIS Boundaries Configuration
+    |--------------------------------------------------------------------------
+    |
+    | High-resolution boundaries (polygons) are downloaded on-demand.
+    | - 'cdn_url': Base URL to pull gzipped datasets from.
+    | - 'local_path': Local path directory to read files from (offline bypass).
+    | - 'type': Storage type. Options: 'spatial' (native geometry) or 'text' (raw JSON coordinate arrays).
+    | - 'spatial_index': Enable spatial index on columns (if 'type' is 'spatial').
+    | - 'levels': Toggle seeding boundaries for each administrative level.
+    |
+    */
+    'boundaries' => [
+        'cdn_url' => 'https://github.com/madebyclowd/laravel-nusantara/releases/download',
+        'local_path' => env('NUSANTARA_BOUNDARIES_LOCAL_PATH', null),
+        'type' => 'spatial', // 'spatial' or 'text'
+        'spatial_index' => true,
+        'verify_checksum' => true,
+        'levels' => [
+            'provinces' => true,
+            'regencies' => true,
+            'districts' => false,
+            'villages' => false,
+        ],
+    ],
 ];
