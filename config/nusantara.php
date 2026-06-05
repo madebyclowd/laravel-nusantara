@@ -167,7 +167,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Phase 2 GIS Boundaries Configuration
+    | GIS Boundaries Configuration
     |--------------------------------------------------------------------------
     |
     | High-resolution boundaries (polygons) are downloaded on-demand.

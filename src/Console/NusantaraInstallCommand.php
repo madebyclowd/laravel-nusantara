@@ -43,7 +43,7 @@ class NusantaraInstallCommand extends Command
         }
 
         // 3. Seed Database
-        if ($this->confirm('Do you want to seed the database with Indonesia administrative regions (Phase 1 Core)?', true)) {
+        if ($this->confirm('Do you want to seed the database with Indonesia administrative regions?', true)) {
             $this->info('Seeding database. This may take a few moments...');
             $this->call('db:seed', [
                 '--class' => NusantaraCoreSeeder::class,

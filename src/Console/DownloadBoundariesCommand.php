@@ -27,7 +27,7 @@ class DownloadBoundariesCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Download and seed geographic boundary shapes from GitHub Releases / CDN (Phase 2)';
+    protected $description = 'Download and seed geographic boundary shapes from GitHub Releases / CDN';
 
     /**
      * Execute the console command.
@@ -39,7 +39,7 @@ class DownloadBoundariesCommand extends Command
         $dryRun = $this->option('dry-run');
         $chunkSize = (int) $this->option('chunk');
 
-        $this->components->info('Starting geographic boundaries downloader (Phase 2)...');
+        $this->components->info('Starting geographic boundaries downloader...');
 
         $levels = ['provinces', 'regencies', 'districts', 'villages'];
         if ($levelOption !== 'all') {
@@ -81,16 +81,15 @@ class DownloadBoundariesCommand extends Command
         }
 
         foreach ($levels as $level) {
-            $this->components->task("Processing level: {$level}", function () use ($level, $tempDir, $connection, $driver, $storageType, $force, $dryRun, $chunkSize) {
-                if ($level === 'villages') {
-                    $this->processVillages($tempDir, $connection, $driver, $storageType, $force, $dryRun, $chunkSize);
-                } else {
-                    $this->processStandardLevel($level, $tempDir, $connection, $driver, $storageType, $force, $dryRun, $chunkSize);
-                }
-            });
+            $this->info("Processing level: {$level}");
+            if ($level === 'villages') {
+                $this->processVillages($tempDir, $connection, $driver, $storageType, $force, $dryRun, $chunkSize);
+            } else {
+                $this->processStandardLevel($level, $tempDir, $connection, $driver, $storageType, $force, $dryRun, $chunkSize);
+            }
         }
 
-        $this->components->info('Laravel Nusantara boundaries seeding finished!');
+        $this->info('Laravel Nusantara boundaries seeding finished!');
 
         return self::SUCCESS;
     }
@@ -101,6 +100,7 @@ class DownloadBoundariesCommand extends Command
     protected function processStandardLevel(string $level, string $tempDir, $connection, string $driver, string $storageType, bool $force, bool $dryRun, int $chunkSize): void
     {
         $filename = "{$level}.csv.gz";
+        $this->info("Resolving {$filename}...");
         $filePath = $this->resolveFile($filename, $tempDir);
 
         if ($dryRun) {
@@ -129,7 +129,11 @@ class DownloadBoundariesCommand extends Command
             return;
         }
 
-        $this->info("\nSeeding villages sharded by ".count($provinces).' provinces...');
+        $this->info("Resolving village files...");
+
+        // Pre-resolve and count lines for progress bar if not dry-run
+        $filesToSeed = [];
+        $totalRows = 0;
 
         foreach ($provinces as $provId) {
             $filename = "villages_{$provId}.csv.gz";
@@ -141,12 +145,10 @@ class DownloadBoundariesCommand extends Command
 
             try {
                 $filePath = $this->resolveFile($filename, $tempDir);
-
-                if ($dryRun) {
-                    continue;
+                if (! $dryRun) {
+                    $filesToSeed[] = $filePath;
+                    $totalRows += $this->countGzLines($filePath);
                 }
-
-                $this->seedBoundaryFile($filePath, 'villages', $connection, $driver, $storageType, $force, $chunkSize);
             } catch (\Exception $e) {
                 // If verify_checksum is false and download failed, it might be that the province has no village boundaries
                 if (! config('nusantara.boundaries.verify_checksum', true)) {
@@ -155,6 +157,21 @@ class DownloadBoundariesCommand extends Command
                 throw $e;
             }
         }
+
+        if ($dryRun || empty($filesToSeed)) {
+            return;
+        }
+
+        $this->info("Seeding villages...");
+        $progressBar = $this->output->createProgressBar($totalRows);
+        $progressBar->start();
+
+        foreach ($filesToSeed as $filePath) {
+            $this->seedBoundaryFile($filePath, 'villages', $connection, $driver, $storageType, $force, $chunkSize, $progressBar);
+        }
+
+        $progressBar->finish();
+        $this->output->newLine();
     }
 
     /**
@@ -231,7 +248,7 @@ class DownloadBoundariesCommand extends Command
     /**
      * Stream CSV boundaries and update database.
      */
-    protected function seedBoundaryFile(string $filePath, string $level, $connection, string $driver, string $storageType, bool $force, int $chunkSize): void
+    protected function seedBoundaryFile(string $filePath, string $level, $connection, string $driver, string $storageType, bool $force, int $chunkSize, $progressBar = null): void
     {
         $tableName = config("nusantara.tables.{$level}");
         $idColName = config("nusantara.columns.{$level}.id.name");
@@ -286,9 +303,18 @@ class DownloadBoundariesCommand extends Command
             return;
         }
 
+        $isLocalBar = false;
+        if (! $progressBar) {
+            $total = $this->countGzLines($filePath);
+            $progressBar = $this->output->createProgressBar($total);
+            $progressBar->start();
+            $isLocalBar = true;
+        }
+
         $batch = [];
         while (($row = fgetcsv($handle)) !== false) {
             if (count($headers) !== count($row)) {
+                $progressBar->advance();
                 continue;
             }
 
@@ -297,6 +323,7 @@ class DownloadBoundariesCommand extends Command
             $boundaryJson = $record['boundary'] ?? null;
 
             if (empty($id) || empty($boundaryJson)) {
+                $progressBar->advance();
                 continue;
             }
 
@@ -307,6 +334,7 @@ class DownloadBoundariesCommand extends Command
                     ->whereNotNull($boundaryColName)
                     ->exists();
                 if ($exists) {
+                    $progressBar->advance();
                     continue;
                 }
             }
@@ -315,6 +343,8 @@ class DownloadBoundariesCommand extends Command
                 $wkt = $this->jsonToWkt($boundaryJson);
                 if ($wkt) {
                     $batch[$id] = $wkt;
+                } else {
+                    $progressBar->advance();
                 }
             } else {
                 $batch[$id] = $boundaryJson;
@@ -322,12 +352,19 @@ class DownloadBoundariesCommand extends Command
 
             if (count($batch) >= $chunkSize) {
                 $this->updateBatch($connection, $tableName, $idColName, $boundaryColName, $batch, $driver, $storageType);
+                $progressBar->advance(count($batch));
                 $batch = [];
             }
         }
 
         if (count($batch) > 0) {
             $this->updateBatch($connection, $tableName, $idColName, $boundaryColName, $batch, $driver, $storageType);
+            $progressBar->advance(count($batch));
+        }
+
+        if ($isLocalBar) {
+            $progressBar->finish();
+            $this->output->newLine();
         }
 
         gzclose($handle);
@@ -602,5 +639,23 @@ class DownloadBoundariesCommand extends Command
         }
 
         return 'MULTIPOLYGON('.implode(', ', $polygons).')';
+    }
+
+    /**
+     * Count the number of rows (excluding header) in a gzip file.
+     */
+    protected function countGzLines(string $filePath): int
+    {
+        if (! file_exists($filePath)) {
+            return 0;
+        }
+        $handle = gzopen($filePath, 'r');
+        $count = 0;
+        while (gzgets($handle) !== false) {
+            $count++;
+        }
+        gzclose($handle);
+
+        return max(0, $count - 1); // Exclude header
     }
 }

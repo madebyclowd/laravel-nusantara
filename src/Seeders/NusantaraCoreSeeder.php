@@ -28,7 +28,21 @@ class NusantaraCoreSeeder extends Seeder
     protected function seedProvinces(): void
     {
         $path = __DIR__.'/../../database/seeders/data/provinces.csv.gz';
-        $this->streamCsv($path, 'provinces');
+
+        $progressBar = null;
+        if ($this->command) {
+            $this->command->info('Seeding provinces...');
+            $totalRows = $this->countGzLines($path);
+            $progressBar = $this->command->getOutput()->createProgressBar($totalRows);
+            $progressBar->start();
+        }
+
+        $this->streamCsv($path, 'provinces', 500, $progressBar);
+
+        if ($progressBar) {
+            $progressBar->finish();
+            $this->command->getOutput()->newLine();
+        }
     }
 
     /**
@@ -37,7 +51,21 @@ class NusantaraCoreSeeder extends Seeder
     protected function seedRegencies(): void
     {
         $path = __DIR__.'/../../database/seeders/data/regencies.csv.gz';
-        $this->streamCsv($path, 'regencies');
+
+        $progressBar = null;
+        if ($this->command) {
+            $this->command->info('Seeding regencies...');
+            $totalRows = $this->countGzLines($path);
+            $progressBar = $this->command->getOutput()->createProgressBar($totalRows);
+            $progressBar->start();
+        }
+
+        $this->streamCsv($path, 'regencies', 500, $progressBar);
+
+        if ($progressBar) {
+            $progressBar->finish();
+            $this->command->getOutput()->newLine();
+        }
     }
 
     /**
@@ -46,7 +74,21 @@ class NusantaraCoreSeeder extends Seeder
     protected function seedDistricts(): void
     {
         $path = __DIR__.'/../../database/seeders/data/districts.csv.gz';
-        $this->streamCsv($path, 'districts');
+
+        $progressBar = null;
+        if ($this->command) {
+            $this->command->info('Seeding districts...');
+            $totalRows = $this->countGzLines($path);
+            $progressBar = $this->command->getOutput()->createProgressBar($totalRows);
+            $progressBar->start();
+        }
+
+        $this->streamCsv($path, 'districts', 500, $progressBar);
+
+        if ($progressBar) {
+            $progressBar->finish();
+            $this->command->getOutput()->newLine();
+        }
     }
 
     /**
@@ -55,15 +97,32 @@ class NusantaraCoreSeeder extends Seeder
     protected function seedVillages(): void
     {
         $files = glob(__DIR__.'/../../database/seeders/data/villages/villages_*.csv.gz');
+
+        $progressBar = null;
+        if ($this->command) {
+            $this->command->info('Seeding villages...');
+            $totalRows = 0;
+            foreach ($files as $file) {
+                $totalRows += $this->countGzLines($file);
+            }
+            $progressBar = $this->command->getOutput()->createProgressBar($totalRows);
+            $progressBar->start();
+        }
+
         foreach ($files as $file) {
-            $this->streamCsv($file, 'villages');
+            $this->streamCsv($file, 'villages', 500, $progressBar);
+        }
+
+        if ($progressBar) {
+            $progressBar->finish();
+            $this->command->getOutput()->newLine();
         }
     }
 
     /**
      * Streams CSV file and inserts data in chunks.
      */
-    protected function streamCsv(string $filePath, string $tableKey, int $chunkSize = 500): void
+    protected function streamCsv(string $filePath, string $tableKey, int $chunkSize = 500, $progressBar = null): void
     {
         if (! file_exists($filePath)) {
             return;
@@ -89,6 +148,9 @@ class NusantaraCoreSeeder extends Seeder
         while (($row = fgetcsv($handle)) !== false) {
             // Protect against empty or malformed rows
             if (count($headers) !== count($row)) {
+                if ($progressBar) {
+                    $progressBar->advance();
+                }
                 continue;
             }
 
@@ -115,14 +177,38 @@ class NusantaraCoreSeeder extends Seeder
 
             if (count($batch) >= $effectiveChunkSize) {
                 DB::connection($connection)->table($tableName)->insert($batch);
+                if ($progressBar) {
+                    $progressBar->advance(count($batch));
+                }
                 $batch = [];
             }
         }
 
         if (count($batch) > 0) {
             DB::connection($connection)->table($tableName)->insert($batch);
+            if ($progressBar) {
+                $progressBar->advance(count($batch));
+            }
         }
 
         gzclose($handle);
+    }
+
+    /**
+     * Count the number of rows (excluding header) in a gzip file.
+     */
+    protected function countGzLines(string $filePath): int
+    {
+        if (! file_exists($filePath)) {
+            return 0;
+        }
+        $handle = gzopen($filePath, 'r');
+        $count = 0;
+        while (gzgets($handle) !== false) {
+            $count++;
+        }
+        gzclose($handle);
+
+        return max(0, $count - 1); // Exclude header
     }
 }

@@ -11,15 +11,15 @@ A highly customizable, enterprise-ready, and developer-friendly Laravel package 
 
 ## 🏛 Project Seeding Architecture (Hybrid Model)
 
-To optimize build speed, performance, and memory usage, the database design and seeding process is divided into two phases:
+To optimize build speed, performance, and memory usage, the database design and seeding process is divided into two parts:
 
-1. **Phase 1: Core Package (Core Metadata - ~2.7 MB)** *(Active)*
+1. **Core Package (Core Metadata - ~2.7 MB)**
    * A lightweight, offline-ready dataset packaged directly in this library.
    * Contains names, normalized codes (dot-free IDs), parent/child relationships, centroid points (`latitude`/`longitude`), postal codes, elevation, timezone, area, and population estimates.
    * Zero external network requests during installation, making it 100% safe for firewalled corporate CI/CD pipelines.
-2. **Phase 2: Geographic Boundaries (GIS Polygons - ~104 MB)** *(Upcoming)*
-   * High-resolution GIS boundary coordinates hosted on an external CDN.
-   * Planned for a future release. The `php artisan nusantara:download-boundaries` command is currently a placeholder pointing to this roadmap, and the database boundary columns are disabled by default.
+2. **Geographic Boundaries (GIS Polygons - ~104 MB)**
+   * High-resolution GIS boundary coordinates hosted on GitHub Releases/CDN.
+   * Fully supported and loaded on-demand. To download and seed GIS boundaries, run the `php artisan nusantara:download-boundaries` command (see configuration section to enable boundary columns).
 
 ---
 
@@ -144,7 +144,7 @@ return [
             'timezone'    => ['name' => 'timezone', 'enabled' => true],
             'area'        => ['name' => 'area', 'enabled' => true],
             'population'  => ['name' => 'population', 'enabled' => true],
-            'boundary'    => ['name' => 'boundary', 'enabled' => false], // Phase 2
+            'boundary'    => ['name' => 'boundary', 'enabled' => false], // GIS Boundary Coordinates
         ],
         // ... (regencies, districts, villages keys follow the same structure)
     ],
