@@ -478,7 +478,7 @@ class DownloadBoundariesCommand extends Command
     /**
      * Format coordinates as a WKT POLYGON.
      */
-    protected function formatPolygonWkt(array $polygon): string
+    protected function formatPolygonWkt(array $polygon): ?string
     {
         $rings = [];
         foreach ($polygon as $ring) {
@@ -495,8 +495,18 @@ class DownloadBoundariesCommand extends Command
                 if ($points[0] !== end($points)) {
                     $points[] = $points[0];
                 }
+                // PostGIS requires at least 4 points (3 distinct + closing) per ring.
+                // Skip degenerate rings that don't meet the minimum.
+                if (count($points) < 4) {
+                    continue;
+                }
                 $rings[] = '('.implode(', ', $points).')';
             }
+        }
+
+        // If no valid rings remain, the geometry is invalid — return null to skip.
+        if (empty($rings)) {
+            return null;
         }
 
         return 'POLYGON('.implode(', ', $rings).')';
@@ -505,7 +515,7 @@ class DownloadBoundariesCommand extends Command
     /**
      * Format coordinates as a WKT MULTIPOLYGON.
      */
-    protected function formatMultiPolygonWkt(array $multiPolygon): string
+    protected function formatMultiPolygonWkt(array $multiPolygon): ?string
     {
         $polygons = [];
         foreach ($multiPolygon as $polygon) {
@@ -527,12 +537,23 @@ class DownloadBoundariesCommand extends Command
                     if ($points[0] !== end($points)) {
                         $points[] = $points[0];
                     }
+                    // PostGIS requires at least 4 points (3 distinct + closing) per ring.
+                    // Skip degenerate rings that don't meet the minimum.
+                    if (count($points) < 4) {
+                        continue;
+                    }
                     $rings[] = '('.implode(', ', $points).')';
                 }
             }
+            // Only include polygons that have at least one valid (exterior) ring.
             if (! empty($rings)) {
                 $polygons[] = '('.implode(', ', $rings).')';
             }
+        }
+
+        // If no valid polygons remain, the geometry is invalid — return null to skip.
+        if (empty($polygons)) {
+            return null;
         }
 
         return 'MULTIPOLYGON('.implode(', ', $polygons).')';
