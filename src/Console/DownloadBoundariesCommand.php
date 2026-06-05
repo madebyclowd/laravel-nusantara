@@ -179,7 +179,7 @@ class DownloadBoundariesCommand extends Command
 
         // Dynamic URL Resolution
         $cdnUrl = rtrim(config('nusantara.boundaries.cdn_url'), '/');
-        $version = $this->getPackageVersion();
+        $version = $this->getDataVersion();
 
         $url = "{$cdnUrl}/{$version}/{$filename}";
 
@@ -367,6 +367,28 @@ class DownloadBoundariesCommand extends Command
         }
 
         return true;
+    }
+
+    /**
+     * Resolve the target dataset version tag.
+     */
+    protected function getDataVersion(): string
+    {
+        $configVersion = config('nusantara.boundaries.version');
+        if ($configVersion) {
+            return $configVersion;
+        }
+
+        $packageVersion = $this->getPackageVersion();
+
+        // If package version is a development tag, fallback to v1.1.0 as the base data tag
+        if ($packageVersion === 'v1.0.0' || str_starts_with($packageVersion, 'dev-')) {
+            return 'v1.1.0';
+        }
+
+        // By default, since v1.1.0 is the release containing the assets,
+        // we can default to it unless we explicitly want to follow package updates.
+        return 'v1.1.0';
     }
 
     /**
