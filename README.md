@@ -219,7 +219,7 @@ vendor/bin/phpunit
 
 ## Credits
 
-* Special thanks to [cahyadsn](https://github.com/cahyadsn) for compiling the raw Indonesia administrative data used as the source for this package's dataset.
+* Special thanks to [cahyadsn](https://github.com/cahyadsn) for curating and providing the raw Indonesia administrative data used as the source for this package's dataset.
 
 ---
 
