@@ -196,11 +196,20 @@ class SeedingAndMigrationTest extends TestCase
     /** @test */
     public function it_automatically_publishes_boost_skills_when_boost_commands_run()
     {
-        $targetSkillPath = base_path('.github/skills/laravel-nusantara.md');
+        $targetSkillPath = base_path('.github/skills/laravel-nusantara/SKILL.md');
+        $boostJsonPath = base_path('boost.json');
 
         if (file_exists($targetSkillPath)) {
             unlink($targetSkillPath);
         }
+        if (file_exists($boostJsonPath)) {
+            unlink($boostJsonPath);
+        }
+
+        // Create a dummy boost.json to verify auto-registration
+        file_put_contents($boostJsonPath, json_encode([
+            'skills' => ['laravel-best-practices']
+        ]));
 
         $this->assertFileDoesNotExist($targetSkillPath);
 
@@ -216,9 +225,20 @@ class SeedingAndMigrationTest extends TestCase
 
         $this->assertFileExists($targetSkillPath);
 
+        // Assert boost.json was updated with our skill
+        $this->assertFileExists($boostJsonPath);
+        $boostJson = json_decode(file_get_contents($boostJsonPath), true);
+        $this->assertContains('laravel-nusantara', $boostJson['skills']);
+
         // Cleanup
         if (file_exists($targetSkillPath)) {
             unlink($targetSkillPath);
+            if (is_dir(dirname($targetSkillPath))) {
+                rmdir(dirname($targetSkillPath));
+            }
+        }
+        if (file_exists($boostJsonPath)) {
+            unlink($boostJsonPath);
         }
     }
 }

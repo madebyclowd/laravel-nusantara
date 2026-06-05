@@ -71,14 +71,45 @@ class NusantaraServiceProvider extends ServiceProvider
      */
     protected function autoPublishBoostSkills(): void
     {
-        $source = __DIR__.'/../resources/boost/skills/laravel-nusantara.md';
-        $destination = base_path('.github/skills/laravel-nusantara.md');
+        $source = __DIR__.'/../resources/boost/skills/laravel-nusantara/SKILL.md';
+        if (!file_exists($source)) {
+            return;
+        }
 
-        if (file_exists($source)) {
+        // Determine target directories based on what exists
+        $targets = [];
+        if (is_dir(base_path('.github/skills'))) {
+            $targets[] = base_path('.github/skills/laravel-nusantara/SKILL.md');
+        }
+        if (is_dir(base_path('.ai/skills'))) {
+            $targets[] = base_path('.ai/skills/laravel-nusantara/SKILL.md');
+        }
+
+        // Fallback to .github/skills if neither exists yet
+        if (empty($targets)) {
+            $targets[] = base_path('.github/skills/laravel-nusantara/SKILL.md');
+        }
+
+        foreach ($targets as $destination) {
             if (!is_dir(dirname($destination))) {
                 mkdir(dirname($destination), 0755, true);
             }
             copy($source, $destination);
+        }
+
+        // Auto-register in boost.json if it exists
+        $boostJsonPath = base_path('boost.json');
+        if (file_exists($boostJsonPath)) {
+            $boostJson = json_decode(file_get_contents($boostJsonPath), true);
+            if (is_array($boostJson) && isset($boostJson['skills'])) {
+                if (!in_array('laravel-nusantara', $boostJson['skills'])) {
+                    $boostJson['skills'][] = 'laravel-nusantara';
+                    file_put_contents(
+                        $boostJsonPath,
+                        json_encode($boostJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+                    );
+                }
+            }
         }
     }
 
