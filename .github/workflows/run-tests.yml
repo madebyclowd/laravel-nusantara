@@ -30,7 +30,7 @@ jobs:
             ${{ runner.os }}-composer-lint-
 
       - name: Install dependencies
-        run: composer install --prefer-dist --no-interaction --no-audit
+        run: composer install --prefer-dist --no-interaction
 
       - name: Run Pint
         run: vendor/bin/pint --test
@@ -110,7 +110,7 @@ jobs:
           COMPOSER_POLICY_ADVISORIES_BLOCK: 0
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
-          composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-audit
+          composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 
       - name: Execute tests
         run: vendor/bin/phpunit
