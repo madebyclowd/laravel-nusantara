@@ -185,6 +185,12 @@ return new class extends Migration
     protected function addBoundaryColumn(Blueprint $table, string $colName): void
     {
         $storageType = config('nusantara.boundaries.type', 'spatial');
+        $connection = DB::connection($this->getConnection());
+        $driver = $connection->getDriverName();
+
+        if ($storageType === 'spatial' && ! $this->isSpatialSupported($driver, $connection)) {
+            $storageType = 'text';
+        }
 
         if ($storageType === 'spatial') {
             $table->geometry($colName)->nullable();
@@ -192,7 +198,6 @@ return new class extends Migration
             // SQL Server, PostgreSQL, and MySQL support spatial indexes.
             // Standard SQLite does not support standard blueprint spatialIndex() and throws an error.
             if (config('nusantara.boundaries.spatial_index', true)) {
-                $driver = DB::connection($this->getConnection())->getDriverName();
                 if ($driver !== 'sqlite') {
                     $table->spatialIndex($colName);
                 }
@@ -200,6 +205,34 @@ return new class extends Migration
         } else {
             $table->longText($colName)->nullable();
         }
+    }
+
+    /**
+     * Check if spatial geometry functions are supported in database connection.
+     */
+    protected function isSpatialSupported(string $driver, $connection): bool
+    {
+        if ($driver === 'sqlite') {
+            try {
+                $connection->select('SELECT spatialite_version()');
+
+                return true;
+            } catch (Exception $e) {
+                return false;
+            }
+        }
+
+        if ($driver === 'pgsql') {
+            try {
+                $connection->select('SELECT postgis_version()');
+
+                return true;
+            } catch (Exception $e) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

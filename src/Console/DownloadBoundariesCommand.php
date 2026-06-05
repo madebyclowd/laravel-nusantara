@@ -366,6 +366,16 @@ class DownloadBoundariesCommand extends Command
             }
         }
 
+        if ($driver === 'pgsql') {
+            try {
+                DB::connection($connectionName)->select('SELECT postgis_version()');
+
+                return true;
+            } catch (\Exception $e) {
+                return false;
+            }
+        }
+
         return true;
     }
 
