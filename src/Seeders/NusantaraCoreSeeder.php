@@ -151,6 +151,7 @@ class NusantaraCoreSeeder extends Seeder
                 if ($progressBar) {
                     $progressBar->advance();
                 }
+
                 continue;
             }
 

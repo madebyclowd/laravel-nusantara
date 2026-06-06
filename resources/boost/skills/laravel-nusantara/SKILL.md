@@ -28,6 +28,11 @@ php artisan vendor:publish --tag=nusantara-migrations
 php artisan vendor:publish --tag=nusantara-boost-skills
 ```
 
+If geographic boundaries (polygons) are required, enable the `boundary` columns in the config file and run the boundary downloader:
+```bash
+php artisan nusantara:download-boundaries
+```
+
 ### Config Customization Example
 
 The package allows full schema freedom. Below is an example of customized tables and columns in `config/nusantara.php`:
@@ -128,6 +133,7 @@ $results = DB::table($tableName)
 3. Ensure that custom database queries resolve table and column names dynamically from the config/models.
 4. Verify that caching is functioning, and is tagged with the config-defined cache prefix.
 5. If using REST API endpoints, ensure the configured middlewares and route prefixes match the project architecture.
+6. If using geographic boundaries, verify that the `boundary` columns are enabled, migrations have been run or modified, and boundaries have been downloaded via `nusantara:download-boundaries`.
 
 ## Common Pitfalls
 
@@ -135,3 +141,5 @@ $results = DB::table($tableName)
 - Accessing database column names directly instead of utilizing logical properties (e.g. `$model->custom_name` instead of `$model->name`).
 - Accessing relation attributes on models before ensuring that the database tables are migrated and seeded.
 - Bypassing the `Nusantara` facade for read queries, which disables query caching.
+- Querying boundary coordinates before running the boundary downloader.
+- Hardcoding coordinate parsing assumptions without checking if spatial support is active (e.g. falling back to text representation if PostGIS/SpatiaLite is missing).

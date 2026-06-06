@@ -9,20 +9,6 @@ A highly customizable, enterprise-ready, and developer-friendly Laravel package 
 
 ---
 
-## 🏛 Project Seeding Architecture (Hybrid Model)
-
-To optimize build speed, performance, and memory usage, the database design and seeding process is divided into two parts:
-
-1. **Core Package (Core Metadata - ~2.7 MB)**
-   * A lightweight, offline-ready dataset packaged directly in this library.
-   * Contains names, normalized codes (dot-free IDs), parent/child relationships, centroid points (`latitude`/`longitude`), postal codes, elevation, timezone, area, and population estimates.
-   * Zero external network requests during installation, making it 100% safe for firewalled corporate CI/CD pipelines.
-2. **Geographic Boundaries (GIS Polygons - ~104 MB)**
-   * High-resolution GIS boundary coordinates hosted on GitHub Releases/CDN.
-   * Fully supported and loaded on-demand. To download and seed GIS boundaries, run the `php artisan nusantara:download-boundaries` command (see configuration section to enable boundary columns).
-
----
-
 ## ⚡ Key Features
 
 * **Complete Schema Freedom**: Use SQLite, PostgreSQL, MySQL, SQL Server, or any custom connection.
@@ -33,6 +19,7 @@ To optimize build speed, performance, and memory usage, the database design and 
 * **Cascading Eloquent Relations**: Provides relationships from Province to Regency, District, and Villages (with optimized join methods for deep traversals).
 * **Ready-to-Use JSON REST API**: Built-in endpoints protected by middleware and rate limiters for checkout/registration widgets.
 * **Low-Memory Seeder**: Streams gzipped CSV data line-by-line, keeping memory consumption under 3MB during the seed.
+* **On-Demand Geographic Boundaries**: Keep your package footprint small by downloading high-resolution GIS boundary coordinates only if and when you need them.
 * **AI-Agent Ready**: Automatically registers its developer instructions with **Laravel Boost** (`SKILL.md`) to help coding assistants query the dataset correctly.
 
 ---
@@ -84,6 +71,28 @@ If you prefer custom automation or wish to review steps individually:
    ```bash
    php artisan db:seed --class="MadeByClowd\Nusantara\Seeders\NusantaraCoreSeeder"
    ```
+
+---
+
+## 🗺️ Geographic Boundaries (GIS)
+
+If your application requires geographic boundary shapes (polygons), you can download and seed them on-demand:
+
+1. Enable the `boundary` column for the desired levels (provinces, regencies, districts, or villages) in `config/nusantara.php`:
+   ```php
+   'columns' => [
+       'provinces' => [
+           // ...
+           'boundary' => ['name' => 'boundary', 'enabled' => true],
+       ],
+   ]
+   ```
+2. Run the boundary download Artisan command:
+   ```bash
+   php artisan nusantara:download-boundaries
+   ```
+
+*(Note: The command will download, verify checksums, and seed the high-resolution GIS coordinates into your database automatically).*
 
 ---
 

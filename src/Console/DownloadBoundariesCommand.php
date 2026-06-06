@@ -129,7 +129,7 @@ class DownloadBoundariesCommand extends Command
             return;
         }
 
-        $this->info("Resolving village files...");
+        $this->info('Resolving village files...');
 
         // Pre-resolve and count lines for progress bar if not dry-run
         $filesToSeed = [];
@@ -162,7 +162,7 @@ class DownloadBoundariesCommand extends Command
             return;
         }
 
-        $this->info("Seeding villages...");
+        $this->info('Seeding villages...');
         $progressBar = $this->output->createProgressBar($totalRows);
         $progressBar->start();
 
@@ -315,6 +315,7 @@ class DownloadBoundariesCommand extends Command
         while (($row = fgetcsv($handle)) !== false) {
             if (count($headers) !== count($row)) {
                 $progressBar->advance();
+
                 continue;
             }
 
@@ -324,6 +325,7 @@ class DownloadBoundariesCommand extends Command
 
             if (empty($id) || empty($boundaryJson)) {
                 $progressBar->advance();
+
                 continue;
             }
 
@@ -335,6 +337,7 @@ class DownloadBoundariesCommand extends Command
                     ->exists();
                 if ($exists) {
                     $progressBar->advance();
+
                     continue;
                 }
             }
