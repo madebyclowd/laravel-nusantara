@@ -7,6 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use MadeByClowd\Nusantara\Manifest;
 
 class DownloadBoundariesCommand extends Command
@@ -40,6 +41,7 @@ class DownloadBoundariesCommand extends Command
         $chunkSize = (int) $this->option('chunk');
 
         $this->components->info('Starting geographic boundaries downloader...');
+        Log::info("Nusantara boundaries downloader started. Level={$levelOption}, Force={$force}, DryRun={$dryRun}, ChunkSize={$chunkSize}");
 
         $levels = ['provinces', 'regencies', 'districts', 'villages'];
         if ($levelOption !== 'all') {
@@ -90,6 +92,7 @@ class DownloadBoundariesCommand extends Command
         }
 
         $this->info('Laravel Nusantara boundaries seeding finished!');
+        Log::info('Nusantara boundaries downloader completed successfully.');
 
         return self::SUCCESS;
     }
@@ -110,6 +113,10 @@ class DownloadBoundariesCommand extends Command
         }
 
         $this->seedBoundaryFile($filePath, $level, $connection, $driver, $storageType, $force, $chunkSize);
+
+        if (str_starts_with($filePath, $tempDir) && file_exists($filePath)) {
+            unlink($filePath);
+        }
     }
 
     /**
@@ -120,8 +127,9 @@ class DownloadBoundariesCommand extends Command
         // Get all unique province IDs seeded in the database
         $provTable = config('nusantara.tables.provinces');
         $provIdCol = config('nusantara.columns.provinces.id.name');
+        $provNameCol = config('nusantara.columns.provinces.name.name');
 
-        $provinces = DB::connection($connection)->table($provTable)->pluck($provIdCol)->toArray();
+        $provinces = DB::connection($connection)->table($provTable)->pluck($provNameCol, $provIdCol)->toArray();
 
         if (empty($provinces)) {
             $this->warn("\nNo provinces found in database. Please run core seeder first.");
@@ -129,13 +137,9 @@ class DownloadBoundariesCommand extends Command
             return;
         }
 
-        $this->info('Resolving village files...');
+        $this->info('Resolving and seeding village files...');
 
-        // Pre-resolve and count lines for progress bar if not dry-run
-        $filesToSeed = [];
-        $totalRows = 0;
-
-        foreach ($provinces as $provId) {
+        foreach ($provinces as $provId => $provName) {
             $filename = "villages_{$provId}.csv.gz";
 
             // Check if file exists in manifest, some provinces might not have village shapefiles
@@ -143,11 +147,25 @@ class DownloadBoundariesCommand extends Command
                 continue;
             }
 
+            if ($dryRun) {
+                try {
+                    $this->resolveFile($filename, $tempDir);
+                    $this->info(" [Dry Run] Checksum verified successfully for {$filename}.");
+                } catch (\Exception $e) {
+                    if (config('nusantara.boundaries.verify_checksum', true)) {
+                        throw $e;
+                    }
+                }
+                continue;
+            }
+
             try {
                 $filePath = $this->resolveFile($filename, $tempDir);
-                if (! $dryRun) {
-                    $filesToSeed[] = $filePath;
-                    $totalRows += $this->countGzLines($filePath);
+                $this->info("Seeding villages for {$provName} ({$provId})...");
+                $this->seedBoundaryFile($filePath, 'villages', $connection, $driver, $storageType, $force, $chunkSize);
+
+                if (str_starts_with($filePath, $tempDir) && file_exists($filePath)) {
+                    unlink($filePath);
                 }
             } catch (\Exception $e) {
                 // If verify_checksum is false and download failed, it might be that the province has no village boundaries
@@ -157,21 +175,6 @@ class DownloadBoundariesCommand extends Command
                 throw $e;
             }
         }
-
-        if ($dryRun || empty($filesToSeed)) {
-            return;
-        }
-
-        $this->info('Seeding villages...');
-        $progressBar = $this->output->createProgressBar($totalRows);
-        $progressBar->start();
-
-        foreach ($filesToSeed as $filePath) {
-            $this->seedBoundaryFile($filePath, 'villages', $connection, $driver, $storageType, $force, $chunkSize, $progressBar);
-        }
-
-        $progressBar->finish();
-        $this->output->newLine();
     }
 
     /**
@@ -179,6 +182,7 @@ class DownloadBoundariesCommand extends Command
      */
     protected function resolveFile(string $filename, string $tempDir): string
     {
+        Log::info("Resolving boundary file: {$filename}");
         $localPath = config('nusantara.boundaries.local_path');
 
         if ($localPath) {
@@ -210,8 +214,11 @@ class DownloadBoundariesCommand extends Command
             if (file_exists($tempFilePath)) {
                 unlink($tempFilePath);
             }
+            Log::error("Failed to download file {$filename} from URL: {$url}");
             throw new \RuntimeException("Failed to download file from URL: {$url}");
         }
+
+        Log::info("Successfully downloaded file {$filename} from URL: {$url}");
 
         try {
             $this->verifyChecksum($filename, $tempFilePath);
@@ -241,57 +248,39 @@ class DownloadBoundariesCommand extends Command
 
         $actualHash = hash_file('sha256', $filePath);
         if ($actualHash !== $expectedHash) {
+            Log::error("Security Exception: Hash verification failed for '{$filename}'. Expected: {$expectedHash}, Got: {$actualHash}");
             throw new \RuntimeException("Security Exception: Hash verification failed for '{$filename}'. Expected: {$expectedHash}, Got: {$actualHash}");
         }
+        Log::info("Hash verification successful for '{$filename}'.");
     }
 
     /**
      * Stream CSV boundaries and update database.
+     *
+     * @return int The number of rows seeded.
      */
-    protected function seedBoundaryFile(string $filePath, string $level, $connection, string $driver, string $storageType, bool $force, int $chunkSize, $progressBar = null): void
+    protected function seedBoundaryFile(string $filePath, string $level, $connection, string $driver, string $storageType, bool $force, int $chunkSize, $progressBar = null): int
     {
         $tableName = config("nusantara.tables.{$level}");
         $idColName = config("nusantara.columns.{$level}.id.name");
         $boundaryColName = config("nusantara.columns.{$level}.boundary.name");
 
-        // Dynamically add boundary column if missing (e.g. if config was enabled after migration)
         $schema = DB::connection($connection)->getSchemaBuilder();
+        Log::info("Seeding boundary file '{$filePath}' for level '{$level}' into table '{$tableName}'...");
         if (! $schema->hasColumn($tableName, $boundaryColName)) {
-            $this->warn("Column '{$boundaryColName}' does not exist in table '{$tableName}'.");
-            if ($this->confirm("Would you like to add the '{$boundaryColName}' column to table '{$tableName}' now?", true)) {
-                $schema->table($tableName, function (Blueprint $table) use ($boundaryColName, $driver, $storageType) {
-                    $this->applyBoundaryColumn($table, $boundaryColName, $driver, $storageType);
-                });
-                $this->info("Column '{$boundaryColName}' added successfully to '{$tableName}'.");
-            } else {
-                throw new \RuntimeException("Aborted: Column '{$boundaryColName}' is missing from table '{$tableName}'.");
-            }
-        } else {
-            // Column exists — check for type mismatch between desired storage type and actual column type.
-            // This can happen when: PostGIS was unavailable on first run (created as text), then later enabled.
-            $columnType = strtolower($schema->getColumnType($tableName, $boundaryColName));
-            $isSpatialColumn = str_contains($columnType, 'geometry') || str_contains($columnType, 'geography');
+            throw new \RuntimeException("Aborted: Column '{$boundaryColName}' is missing from table '{$tableName}'. Please ensure boundary columns are enabled under 'config/nusantara.php' and migrations have been run.");
+        }
 
-            $needsUpgrade = $storageType === 'spatial' && ! $isSpatialColumn;
-            $needsDowngrade = $storageType === 'text' && $isSpatialColumn;
+        // Column exists — check for type mismatch between desired storage type and actual column type.
+        $columnType = strtolower($schema->getColumnType($tableName, $boundaryColName));
+        $isSpatialColumn = str_contains($columnType, 'geometry') || str_contains($columnType, 'geography');
 
-            if ($needsUpgrade || $needsDowngrade) {
-                $desiredType = $storageType === 'spatial' ? 'geometry (spatial)' : 'text';
-                $this->warn("Column '{$boundaryColName}' in table '{$tableName}' is type '{$columnType}' but desired storage is '{$desiredType}'.");
-                if ($this->confirm("Would you like to recreate the '{$boundaryColName}' column as '{$desiredType}'? (Existing boundary data will be cleared)", true)) {
-                    $schema->table($tableName, function (Blueprint $table) use ($boundaryColName) {
-                        $table->dropColumn($boundaryColName);
-                    });
-                    $schema->table($tableName, function (Blueprint $table) use ($boundaryColName, $driver, $storageType) {
-                        $this->applyBoundaryColumn($table, $boundaryColName, $driver, $storageType);
-                    });
-                    $this->info("Column '{$boundaryColName}' recreated as '{$desiredType}' in '{$tableName}'.");
-                } else {
-                    $this->warn("Skipping '{$tableName}': column type mismatch not resolved. Boundaries may not be stored correctly.");
+        $needsUpgrade = $storageType === 'spatial' && ! $isSpatialColumn;
+        $needsDowngrade = $storageType === 'text' && $isSpatialColumn;
 
-                    return;
-                }
-            }
+        if ($needsUpgrade || $needsDowngrade) {
+            $desiredType = $storageType === 'spatial' ? 'geometry' : 'text';
+            throw new \RuntimeException("Aborted: Column '{$boundaryColName}' in table '{$tableName}' is type '{$columnType}' but desired storage is '{$desiredType}'. Please run migrations to update the column type.");
         }
 
         $handle = gzopen($filePath, 'r');
@@ -300,17 +289,17 @@ class DownloadBoundariesCommand extends Command
         if ($headers === false) {
             gzclose($handle);
 
-            return;
+            return 0;
         }
 
         $isLocalBar = false;
         if (! $progressBar) {
-            $total = $this->countGzLines($filePath);
-            $progressBar = $this->output->createProgressBar($total);
+            $progressBar = $this->output->createProgressBar();
             $progressBar->start();
             $isLocalBar = true;
         }
 
+        $seededCount = 0;
         $batch = [];
         while (($row = fgetcsv($handle)) !== false) {
             if (count($headers) !== count($row)) {
@@ -356,6 +345,7 @@ class DownloadBoundariesCommand extends Command
             if (count($batch) >= $chunkSize) {
                 $this->updateBatch($connection, $tableName, $idColName, $boundaryColName, $batch, $driver, $storageType);
                 $progressBar->advance(count($batch));
+                $seededCount += count($batch);
                 $batch = [];
             }
         }
@@ -363,6 +353,7 @@ class DownloadBoundariesCommand extends Command
         if (count($batch) > 0) {
             $this->updateBatch($connection, $tableName, $idColName, $boundaryColName, $batch, $driver, $storageType);
             $progressBar->advance(count($batch));
+            $seededCount += count($batch);
         }
 
         if ($isLocalBar) {
@@ -371,6 +362,10 @@ class DownloadBoundariesCommand extends Command
         }
 
         gzclose($handle);
+
+        Log::info("Successfully seeded {$seededCount} boundary records into table '{$tableName}'.");
+
+        return $seededCount;
     }
 
     /**
@@ -379,15 +374,20 @@ class DownloadBoundariesCommand extends Command
     protected function updateBatch($connection, string $tableName, string $idCol, string $boundaryCol, array $batch, string $driver, string $storageType): void
     {
         DB::connection($connection)->transaction(function () use ($connection, $tableName, $idCol, $boundaryCol, $batch, $driver, $storageType) {
-            foreach ($batch as $id => $val) {
-                $updateVal = $val;
-                if ($storageType === 'spatial') {
-                    $updateVal = $this->getSpatialExpression($val, $driver);
+            if ($storageType === 'spatial') {
+                $placeholder = $this->getSpatialExpressionPlaceholder($driver);
+                foreach ($batch as $id => $val) {
+                    DB::connection($connection)->update(
+                        "UPDATE {$tableName} SET {$boundaryCol} = {$placeholder} WHERE {$idCol} = ?",
+                        [$val, $id]
+                    );
                 }
-
-                DB::connection($connection)->table($tableName)
-                    ->where($idCol, $id)
-                    ->update([$boundaryCol => $updateVal]);
+            } else {
+                foreach ($batch as $id => $val) {
+                    DB::connection($connection)->table($tableName)
+                        ->where($idCol, $id)
+                        ->update([$boundaryCol => $val]);
+                }
             }
         });
     }
@@ -415,25 +415,20 @@ class DownloadBoundariesCommand extends Command
     }
 
     /**
-     * Get the spatial SQL expression depending on database driver.
-     *
-     * PostgreSQL uses ST_GeomFromText with SRID 4326 (WGS 84), treating coordinates as X Y (lon lat).
-     * MySQL enforces the SRS axis order for SRID 4326 (lat, lon per the SRS definition), which would
-     * reject our lon-lat WKT. MySQL also creates the geometry column with SRID 0, so we use SRID 0
-     * here to match the column type and skip geographic axis-order validation.
+     * Get the spatial SQL expression placeholder depending on database driver.
      */
-    protected function getSpatialExpression(string $wkt, string $driver)
+    protected function getSpatialExpressionPlaceholder(string $driver): string
     {
         if ($driver === 'sqlsrv') {
-            return DB::raw("geometry::STGeomFromText('{$wkt}', 4326)");
+            return "geometry::STGeomFromText(?, 4326)";
         }
 
         if ($driver === 'pgsql') {
-            return DB::raw("ST_GeomFromText('{$wkt}', 4326)");
+            return "ST_GeomFromText(?, 4326)";
         }
 
         // MySQL and SQLite SpatiaLite: use SRID 0 to avoid geographic axis-order enforcement.
-        return DB::raw("ST_GeomFromText('{$wkt}')");
+        return "ST_GeomFromText(?)";
     }
 
     /**
@@ -644,21 +639,4 @@ class DownloadBoundariesCommand extends Command
         return 'MULTIPOLYGON('.implode(', ', $polygons).')';
     }
 
-    /**
-     * Count the number of rows (excluding header) in a gzip file.
-     */
-    protected function countGzLines(string $filePath): int
-    {
-        if (! file_exists($filePath)) {
-            return 0;
-        }
-        $handle = gzopen($filePath, 'r');
-        $count = 0;
-        while (gzgets($handle) !== false) {
-            $count++;
-        }
-        gzclose($handle);
-
-        return max(0, $count - 1); // Exclude header
-    }
 }

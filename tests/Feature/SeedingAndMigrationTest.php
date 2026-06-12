@@ -245,4 +245,33 @@ class SeedingAndMigrationTest extends TestCase
             unlink($boostJsonPath);
         }
     }
+
+    /** @test */
+    public function test_it_can_run_install_command_interactively()
+    {
+        $this->artisan('nusantara:install')
+            ->expectsConfirmation('Do you want to publish the package configuration file?', 'no')
+            ->expectsConfirmation('Do you want to publish the package migrations?', 'no')
+            ->expectsConfirmation('Do you want to publish Nusantara AI Agent skills for your workspace?', 'no')
+            ->expectsConfirmation('Do you want to run the database migrations?', 'no')
+            ->expectsConfirmation('Do you want to seed the database with Indonesia administrative regions?', 'no')
+            ->assertExitCode(0);
+    }
+
+    /** @test */
+    public function test_it_can_run_install_command_with_explicit_options()
+    {
+        // Test running just configuration publishing without prompts
+        $this->artisan('nusantara:install', ['--publish-config' => true])
+            ->assertExitCode(0);
+
+        // Test running migrations and seeding explicitly without prompts
+        $this->artisan('nusantara:install', [
+            '--migrate' => true,
+            '--seed' => true,
+        ])
+        ->expectsOutputToContain('Database migrations completed.')
+        ->expectsOutputToContain('Database seeding completed successfully!')
+        ->assertExitCode(0);
+    }
 }

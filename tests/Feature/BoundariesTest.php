@@ -143,7 +143,7 @@ class BoundariesTest extends TestCase
     }
 
     /** @test */
-    public function test_it_can_dynamically_add_boundary_column_if_missing_during_seeding()
+    public function test_it_throws_exception_if_boundary_column_is_missing_during_seeding()
     {
         // 1. Run migration with boundary disabled
         config(['nusantara.columns.provinces.boundary.enabled' => false]);
@@ -169,14 +169,11 @@ class BoundariesTest extends TestCase
             '*/provinces.csv.gz' => Http::response($gzippedData, 200),
         ]);
 
-        // 3. Run download boundaries command (expects confirmation and adds column)
-        $this->artisan('nusantara:download-boundaries', ['--level' => 'provinces'])
-            ->expectsConfirmation("Would you like to add the 'boundary' column to table 'provinces' now?", 'yes')
-            ->assertExitCode(0);
+        // 3. Expect RuntimeException
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage("Aborted: Column 'boundary' is missing from table 'provinces'.");
 
-        // 4. Assert column was dynamically added and seeded
-        $this->assertTrue(Schema::hasColumn('provinces', 'boundary'));
-        $province = Province::find('11');
-        $this->assertEquals('[[[2.0,97.0]]]', $province->boundary);
+        // 4. Run download boundaries command
+        $this->artisan('nusantara:download-boundaries', ['--level' => 'provinces'])->run();
     }
 }
