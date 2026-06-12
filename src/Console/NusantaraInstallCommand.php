@@ -47,6 +47,7 @@ class NusantaraInstallCommand extends Command
             ]);
             if ($exit !== self::SUCCESS) {
                 $this->components->error('Failed to publish configuration file.');
+
                 return self::FAILURE;
             }
             $this->components->info('Configuration file published.');
@@ -60,6 +61,7 @@ class NusantaraInstallCommand extends Command
             ]);
             if ($exit !== self::SUCCESS) {
                 $this->components->error('Failed to publish migrations.');
+
                 return self::FAILURE;
             }
             $this->components->info('Migrations published.');
@@ -73,6 +75,7 @@ class NusantaraInstallCommand extends Command
             ]);
             if ($exit !== self::SUCCESS) {
                 $this->components->error('Failed to publish AI agent skills.');
+
                 return self::FAILURE;
             }
             $this->components->info('AI Agent skills published.');
@@ -84,6 +87,7 @@ class NusantaraInstallCommand extends Command
             $exit = $this->call('migrate');
             if ($exit !== self::SUCCESS) {
                 $this->components->error('Database migrations failed.');
+
                 return self::FAILURE;
             }
             $this->components->info('Database migrations completed.');
@@ -98,6 +102,7 @@ class NusantaraInstallCommand extends Command
             ]);
             if ($exit !== self::SUCCESS) {
                 $this->components->error('Database seeding failed.');
+
                 return self::FAILURE;
             }
             $this->components->info('Database seeding completed successfully!');

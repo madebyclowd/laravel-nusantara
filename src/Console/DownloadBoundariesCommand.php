@@ -156,6 +156,7 @@ class DownloadBoundariesCommand extends Command
                         throw $e;
                     }
                 }
+
                 continue;
             }
 
@@ -420,15 +421,15 @@ class DownloadBoundariesCommand extends Command
     protected function getSpatialExpressionPlaceholder(string $driver): string
     {
         if ($driver === 'sqlsrv') {
-            return "geometry::STGeomFromText(?, 4326)";
+            return 'geometry::STGeomFromText(?, 4326)';
         }
 
         if ($driver === 'pgsql') {
-            return "ST_GeomFromText(?, 4326)";
+            return 'ST_GeomFromText(?, 4326)';
         }
 
         // MySQL and SQLite SpatiaLite: use SRID 0 to avoid geographic axis-order enforcement.
-        return "ST_GeomFromText(?)";
+        return 'ST_GeomFromText(?)';
     }
 
     /**
@@ -638,5 +639,4 @@ class DownloadBoundariesCommand extends Command
 
         return 'MULTIPOLYGON('.implode(', ', $polygons).')';
     }
-
 }

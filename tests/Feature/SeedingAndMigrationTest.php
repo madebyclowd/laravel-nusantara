@@ -270,8 +270,8 @@ class SeedingAndMigrationTest extends TestCase
             '--migrate' => true,
             '--seed' => true,
         ])
-        ->expectsOutputToContain('Database migrations completed.')
-        ->expectsOutputToContain('Database seeding completed successfully!')
-        ->assertExitCode(0);
+            ->expectsOutputToContain('Database migrations completed.')
+            ->expectsOutputToContain('Database seeding completed successfully!')
+            ->assertExitCode(0);
     }
 }
