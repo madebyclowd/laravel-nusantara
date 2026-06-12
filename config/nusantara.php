@@ -179,7 +179,7 @@ return [
     |
     */
     'boundaries' => [
-        'cdn_url' => 'https://github.com/madebyclowd/laravel-nusantara/releases/download',
+        'cdn_url' => 'https://data.clowdlab.com',
         'local_path' => env('NUSANTARA_BOUNDARIES_LOCAL_PATH', null),
         'version' => null, // Set to a specific tag (e.g. 'v1.1.0') to pin dataset version, null to use package version
         'type' => 'spatial', // 'spatial' or 'text'

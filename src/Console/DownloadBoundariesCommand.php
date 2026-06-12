@@ -28,7 +28,7 @@ class DownloadBoundariesCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Download and seed geographic boundary shapes from GitHub Releases / CDN';
+    protected $description = 'Download and seed geographic boundary shapes from Cloudflare CDN';
 
     /**
      * Execute the console command.
