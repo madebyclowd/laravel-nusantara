@@ -2,8 +2,12 @@
 
 namespace MadeByClowd\Nusantara\Models;
 
+use MadeByClowd\Nusantara\Models\Concerns\HasGeoBoundary;
+
 class Regency extends AbstractRegionModel
 {
+    use HasGeoBoundary;
+
     /**
      * Get the logical table name key in configuration.
      */

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use MadeByClowd\Nusantara\Concerns\HasNusantaraCaching;
 use MadeByClowd\Nusantara\Exceptions\NikValidationException;
+use MadeByClowd\Nusantara\Support\Geocoder;
 use MadeByClowd\Nusantara\Support\NikInfo;
 use MadeByClowd\Nusantara\Support\NikParser;
 use MadeByClowd\Nusantara\Support\RegionQuery;
@@ -21,6 +22,8 @@ class NusantaraService
 
     protected ?NikParser $nikParser = null;
 
+    protected ?Geocoder $geocoder = null;
+
     protected function regionQuery(): RegionQuery
     {
         return $this->regionQuery ??= new RegionQuery;
@@ -34,6 +37,11 @@ class NusantaraService
     protected function nikParser(): NikParser
     {
         return $this->nikParser ??= new NikParser($this->regionQuery());
+    }
+
+    protected function geocoder(): Geocoder
+    {
+        return $this->geocoder ??= new Geocoder($this->regionQuery());
     }
 
     /**
@@ -164,5 +172,18 @@ class NusantaraService
     public function isValidNik(string $nik, ?int $referenceYear = null, ?int $centuryOverride = null): bool
     {
         return $this->nikParser()->isValid($nik, $referenceYear, $centuryOverride);
+    }
+
+    /**
+     * Reverse-geocode a coordinate to the region containing it.
+     *
+     * @return Model|null
+     *
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
+    public function findByCoordinate(float $lat, float $lng, string $level = 'village')
+    {
+        return $this->geocoder()->findByCoordinate($lat, $lng, $level);
     }
 }

@@ -11,3 +11,4 @@ Thumbs.db
 composer.lock
 AGENTS.local.md
 CLAUDE.local.md
+/.claude/
