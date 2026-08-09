@@ -11,6 +11,13 @@ class RegionQuery
 {
     use HasNusantaraCaching;
 
+    protected ?LegacyRegionResolver $legacyResolver = null;
+
+    protected function legacyResolver(): LegacyRegionResolver
+    {
+        return $this->legacyResolver ??= new LegacyRegionResolver;
+    }
+
     /**
      * Get the configured Province model class name.
      */
@@ -85,8 +92,22 @@ class RegionQuery
     public function findRegency(string $id)
     {
         return $this->remember("regency.{$id}", function () use ($id) {
-            return $this->getRegencyModel()::find($id);
+            return $this->getRegencyModel()::find($id)
+                ?? $this->findRegencyByLegacyId($id);
         });
+    }
+
+    /**
+     * Fall back to a legacy regency ID's current equivalent when the direct
+     * lookup misses (e.g. a pre-2022 Papua regency code).
+     *
+     * @return Model|null
+     */
+    protected function findRegencyByLegacyId(string $id)
+    {
+        $resolvedId = $this->legacyResolver()->resolveLegacyId($id);
+
+        return $resolvedId !== $id ? $this->getRegencyModel()::find($resolvedId) : null;
     }
 
     /**
@@ -109,8 +130,19 @@ class RegionQuery
     public function findDistrict(string $id)
     {
         return $this->remember("district.{$id}", function () use ($id) {
-            return $this->getDistrictModel()::find($id);
+            return $this->getDistrictModel()::find($id)
+                ?? $this->findDistrictByLegacyId($id);
         });
+    }
+
+    /**
+     * @return Model|null
+     */
+    protected function findDistrictByLegacyId(string $id)
+    {
+        $resolvedId = $this->legacyResolver()->resolveLegacyId($id);
+
+        return $resolvedId !== $id ? $this->getDistrictModel()::find($resolvedId) : null;
     }
 
     /**
@@ -133,7 +165,18 @@ class RegionQuery
     public function findVillage(string $id)
     {
         return $this->remember("village.{$id}", function () use ($id) {
-            return $this->getVillageModel()::find($id);
+            return $this->getVillageModel()::find($id)
+                ?? $this->findVillageByLegacyId($id);
         });
+    }
+
+    /**
+     * @return Model|null
+     */
+    protected function findVillageByLegacyId(string $id)
+    {
+        $resolvedId = $this->legacyResolver()->resolveLegacyId($id);
+
+        return $resolvedId !== $id ? $this->getVillageModel()::find($resolvedId) : null;
     }
 }
