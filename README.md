@@ -2,6 +2,7 @@
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/madebyclowd/laravel-nusantara.svg?style=flat-square)](https://packagist.org/packages/madebyclowd/laravel-nusantara)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/madebyclowd/laravel-nusantara/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/madebyclowd/laravel-nusantara/actions)
+[![codecov](https://img.shields.io/codecov/c/github/madebyclowd/laravel-nusantara?style=flat-square)](https://codecov.io/gh/madebyclowd/laravel-nusantara)
 [![Total Downloads](https://img.shields.io/packagist/dt/madebyclowd/laravel-nusantara.svg?style=flat-square)](https://packagist.org/packages/madebyclowd/laravel-nusantara)
 [![License](https://img.shields.io/packagist/l/madebyclowd/laravel-nusantara.svg?style=flat-square)](https://github.com/madebyclowd/laravel-nusantara/blob/main/LICENSE)
 
