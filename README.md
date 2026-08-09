@@ -20,6 +20,10 @@ A highly customizable, enterprise-ready, and developer-friendly Laravel package 
 * **Ready-to-Use JSON REST API**: Built-in endpoints protected by middleware and rate limiters for checkout/registration widgets.
 * **Low-Memory Seeder**: Streams gzipped CSV data line-by-line, keeping memory consumption under 3MB during the seed.
 * **On-Demand Geographic Boundaries**: Keep your package footprint small by downloading high-resolution GIS boundary coordinates only if and when you need them.
+* **Reverse Geocoding & GeoJSON**: Resolve a coordinate to the region containing it, or export any region as a GeoJSON Feature.
+* **NIK & Postal Code Utilities**: Parse and validate Indonesian national ID (NIK) numbers and postal codes, with automatic resolution to their region hierarchy.
+* **Legacy Region Code Resolution**: Lookups transparently resolve pre-split historical region codes (e.g. pre-2022 Papua) to their current active equivalents.
+* **Scoped, Paginated & Fuzzy Search**: Restrict search to a single region level, paginate results, and fall back to typo-tolerant fuzzy matching on demand.
 * **AI-Agent Ready**: Automatically registers its developer instructions with **Laravel Boost** (`SKILL.md`) to help coding assistants query the dataset correctly.
 
 ---
@@ -27,7 +31,7 @@ A highly customizable, enterprise-ready, and developer-friendly Laravel package 
 ## 🚀 Requirements
 
 - **PHP**: `^8.2`
-- **Laravel Framework**: `^10.0`, `^11.0`, `^12.0`, or `^13.0`
+- **Laravel Framework**: `^11.0`, `^12.0`, or `^13.0`
 
 ---
 
@@ -210,8 +214,44 @@ Returns array:
 ]
 */
 
+// 9a. Scope search to a single level, and paginate
+$results = Nusantara::search('Bakongan', limit: 20, offset: 0, scope: 'districts');
+
+// 9b. Fall back to typo-tolerant fuzzy search when the exact search misses
+// (never triggered automatically — call it explicitly)
+$results = Nusantara::search('Bakonagn') ?: Nusantara::searchFuzzy('Bakonagn');
+
 // 10. Clear cached regional queries manually
 Nusantara::clearCache();
+
+// 11. findRegency()/findDistrict()/findVillage() transparently resolve
+// legacy pre-split region codes (e.g. a pre-2022 Papua regency code)
+// to their current active record, with no extra code required.
+$regency = Nusantara::findRegency('9101'); // resolves to the active '9301' record
+
+// 12. Parse and validate a NIK (Indonesian national ID number)
+$nik = Nusantara::parseNik('1101011505900001');
+$nik->gender;      // 'male' | 'female'
+$nik->birthDate;   // Carbon instance
+$nik->district();  // District model or null (resolves legacy codes automatically)
+$nik->regency();
+$nik->province();
+
+Nusantara::isValidNik('1101011505900001'); // bool, structural validity only
+
+// 13. Resolve villages by postal code, with their full hierarchy
+$villages = Nusantara::resolvePostalCode('23773');
+$villages->first()->district->regency->province;
+
+Nusantara::isValidPostalCode('23773'); // bool, format check only
+
+// 14. Reverse-geocode a coordinate to the region containing it
+// (requires the 'boundary' column enabled and populated at every level
+// up to $level — see "Geographic Boundaries" above)
+$village = Nusantara::findByCoordinate(lat: 2.931, lng: 97.484, level: 'village');
+
+// 15. Export any region as a GeoJSON Feature
+$geojson = $village->toGeoJson();
 ```
 
 ---
@@ -271,6 +311,10 @@ echo $province->name;          // Outputs: "Aceh" (Intercepted and mapped dynami
 echo $province->nama_provinsi; // Outputs: "Aceh" (Direct DB attribute access also works)
 ```
 
+### Extending a Model
+
+All four models extend `MadeByClowd\Nusantara\Models\AbstractRegionModel`, which handles table/key/connection setup and exposes `resolveModel()`/`resolveColumn()`/`resolveTable()` helpers for building your own config-resolved relations. If you need to extend a model (e.g. to add your own relations or accessors), extend the concrete class (`Province`, `Regency`, `District`, or `Village`) and point `config('nusantara.models.*')` at your subclass — extending `AbstractRegionModel` directly is only necessary if you're replacing a model wholesale.
+
 ---
 
 ## 🌐 Optional REST API Endpoints
@@ -326,12 +370,16 @@ This ensures that any AI coding assistant used by developers in their host appli
 
 ## 🧪 Testing
 
-To run the package test suite locally:
+To run the package's checks locally:
 
 ```bash
 composer install
-vendor/bin/phpunit
+vendor/bin/pint --test     # code style
+vendor/bin/phpstan analyse # static analysis
+vendor/bin/phpunit         # test suite
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution workflow, including how to add a changeset.
 
 ---
 
