@@ -31,24 +31,6 @@ parameters:
 			path: src/Http/Controllers/NusantaraApiController.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$districts\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/NusantaraService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$regencies\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/NusantaraService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$villages\.$#'
-			identifier: property.notFound
-			count: 1
-			path: src/NusantaraService.php
-
-		-
 			message: '#^Comparison operation "\>" between int\<1, max\> and 0 is always true\.$#'
 			identifier: greater.alwaysTrue
 			count: 1
@@ -59,3 +41,21 @@ parameters:
 			identifier: if.alwaysTrue
 			count: 8
 			path: src/Seeders/NusantaraCoreSeeder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$districts\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Support/RegionQuery.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$regencies\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Support/RegionQuery.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$villages\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Support/RegionQuery.php
