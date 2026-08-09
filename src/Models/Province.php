@@ -2,40 +2,8 @@
 
 namespace MadeByClowd\Nusantara\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use MadeByClowd\Nusantara\Models\Concerns\HasDynamicNusantaraFields;
-
-class Province extends Model
+class Province extends AbstractRegionModel
 {
-    use HasDynamicNusantaraFields;
-
-    /**
-     * Indicates if the model should be timestamped.
-     *
-     * @var bool
-     */
-    public $timestamps = false;
-
-    /**
-     * Create a new Eloquent model instance.
-     *
-     * @return void
-     */
-    public function __construct(array $attributes = [])
-    {
-        parent::__construct($attributes);
-
-        $this->setTable(config('nusantara.tables.provinces', 'provinces'));
-        $this->setKeyName(config('nusantara.columns.provinces.id.name', 'id'));
-        $this->setKeyType('string');
-        $this->incrementing = false;
-
-        $connectionName = config('nusantara.connection');
-        if ($connectionName) {
-            $this->setConnection($connectionName);
-        }
-    }
-
     /**
      * Get the logical table name key in configuration.
      */
@@ -49,9 +17,9 @@ class Province extends Model
      */
     public function regencies()
     {
-        $regencyModel = config('nusantara.models.regency', Regency::class);
-        $foreignKey = config('nusantara.columns.regencies.province_id.name', 'province_id');
-        $localKey = config('nusantara.columns.provinces.id.name', 'id');
+        $regencyModel = $this->resolveModel('regency', Regency::class);
+        $foreignKey = $this->resolveColumn('regencies', 'province_id');
+        $localKey = $this->resolveColumn('provinces', 'id');
 
         return $this->hasMany($regencyModel, $foreignKey, $localKey);
     }
@@ -61,13 +29,13 @@ class Province extends Model
      */
     public function districts()
     {
-        $districtModel = config('nusantara.models.district', District::class);
-        $regencyModel = config('nusantara.models.regency', Regency::class);
+        $districtModel = $this->resolveModel('district', District::class);
+        $regencyModel = $this->resolveModel('regency', Regency::class);
 
-        $firstKey = config('nusantara.columns.regencies.province_id.name', 'province_id');
-        $secondKey = config('nusantara.columns.districts.regency_id.name', 'regency_id');
-        $localKey = config('nusantara.columns.provinces.id.name', 'id');
-        $secondLocalKey = config('nusantara.columns.regencies.id.name', 'id');
+        $firstKey = $this->resolveColumn('regencies', 'province_id');
+        $secondKey = $this->resolveColumn('districts', 'regency_id');
+        $localKey = $this->resolveColumn('provinces', 'id');
+        $secondLocalKey = $this->resolveColumn('regencies', 'id');
 
         return $this->hasManyThrough(
             $districtModel,
@@ -85,19 +53,18 @@ class Province extends Model
      */
     public function villages()
     {
-        $villageModel = config('nusantara.models.village', Village::class);
-        $districtTable = config('nusantara.tables.districts', 'districts');
-        $regencyTable = config('nusantara.tables.regencies', 'regencies');
-        $villageTable = config('nusantara.tables.villages', 'villages');
+        $villageModel = $this->resolveModel('village', Village::class);
+        $districtTable = $this->resolveTable('districts');
+        $regencyTable = $this->resolveTable('regencies');
+        $villageTable = $this->resolveTable('villages');
 
-        $regencyIdCol = config('nusantara.columns.regencies.id.name', 'id');
-        $regencyProvinceIdCol = config('nusantara.columns.regencies.province_id.name', 'province_id');
+        $regencyIdCol = $this->resolveColumn('regencies', 'id');
+        $regencyProvinceIdCol = $this->resolveColumn('regencies', 'province_id');
 
-        $districtIdCol = config('nusantara.columns.districts.id.name', 'id');
-        $districtRegencyIdCol = config('nusantara.columns.districts.regency_id.name', 'regency_id');
+        $districtIdCol = $this->resolveColumn('districts', 'id');
+        $districtRegencyIdCol = $this->resolveColumn('districts', 'regency_id');
 
-        $villageIdCol = config('nusantara.columns.villages.id.name', 'id');
-        $villageDistrictIdCol = config('nusantara.columns.villages.district_id.name', 'district_id');
+        $villageDistrictIdCol = $this->resolveColumn('villages', 'district_id');
 
         return (new $villageModel)->newQuery()
             ->select("{$villageTable}.*")
