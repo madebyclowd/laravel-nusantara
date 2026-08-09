@@ -9,3 +9,5 @@ Thumbs.db
 /.idea/
 /.vscode/
 composer.lock
+AGENTS.local.md
+CLAUDE.local.md
