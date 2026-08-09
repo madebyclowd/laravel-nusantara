@@ -5,6 +5,9 @@ namespace MadeByClowd\Nusantara;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use MadeByClowd\Nusantara\Concerns\HasNusantaraCaching;
+use MadeByClowd\Nusantara\Exceptions\NikValidationException;
+use MadeByClowd\Nusantara\Support\NikInfo;
+use MadeByClowd\Nusantara\Support\NikParser;
 use MadeByClowd\Nusantara\Support\RegionQuery;
 use MadeByClowd\Nusantara\Support\RegionSearch;
 
@@ -16,6 +19,8 @@ class NusantaraService
 
     protected ?RegionSearch $regionSearch = null;
 
+    protected ?NikParser $nikParser = null;
+
     protected function regionQuery(): RegionQuery
     {
         return $this->regionQuery ??= new RegionQuery;
@@ -24,6 +29,11 @@ class NusantaraService
     protected function regionSearch(): RegionSearch
     {
         return $this->regionSearch ??= new RegionSearch($this->regionQuery());
+    }
+
+    protected function nikParser(): NikParser
+    {
+        return $this->nikParser ??= new NikParser($this->regionQuery());
     }
 
     /**
@@ -136,5 +146,23 @@ class NusantaraService
     public function search(string $query, int $limit = 20): array
     {
         return $this->regionSearch()->search($query, $limit);
+    }
+
+    /**
+     * Parse a 16-digit NIK into its component parts.
+     *
+     * @throws NikValidationException
+     */
+    public function parseNik(string $nik, ?int $referenceYear = null, ?int $centuryOverride = null): NikInfo
+    {
+        return $this->nikParser()->parse($nik, $referenceYear, $centuryOverride);
+    }
+
+    /**
+     * Check whether a NIK is structurally valid.
+     */
+    public function isValidNik(string $nik, ?int $referenceYear = null, ?int $centuryOverride = null): bool
+    {
+        return $this->nikParser()->isValid($nik, $referenceYear, $centuryOverride);
     }
 }
