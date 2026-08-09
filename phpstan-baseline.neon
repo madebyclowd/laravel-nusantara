@@ -1,0 +1,67 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to an undefined static method MadeByClowd\\Nusantara\\Facades\\Nusantara\:\:districtsOf\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Http/Controllers/NusantaraApiController.php
+
+		-
+			message: '#^Call to an undefined static method MadeByClowd\\Nusantara\\Facades\\Nusantara\:\:provinces\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Http/Controllers/NusantaraApiController.php
+
+		-
+			message: '#^Call to an undefined static method MadeByClowd\\Nusantara\\Facades\\Nusantara\:\:regenciesOf\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Http/Controllers/NusantaraApiController.php
+
+		-
+			message: '#^Call to an undefined static method MadeByClowd\\Nusantara\\Facades\\Nusantara\:\:search\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Http/Controllers/NusantaraApiController.php
+
+		-
+			message: '#^Call to an undefined static method MadeByClowd\\Nusantara\\Facades\\Nusantara\:\:villagesOf\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: src/Http/Controllers/NusantaraApiController.php
+
+		-
+			message: '#^Comparison operation "\>" between int\<1, max\> and 0 is always true\.$#'
+			identifier: greater.alwaysTrue
+			count: 1
+			path: src/Seeders/NusantaraCoreSeeder.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 8
+			path: src/Seeders/NusantaraCoreSeeder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$regency\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Support/NikInfo.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$districts\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Support/RegionQuery.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$regencies\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Support/RegionQuery.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$villages\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Support/RegionQuery.php

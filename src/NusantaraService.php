@@ -4,16 +4,61 @@ namespace MadeByClowd\Nusantara;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Cache;
+use MadeByClowd\Nusantara\Concerns\HasNusantaraCaching;
+use MadeByClowd\Nusantara\Exceptions\NikValidationException;
+use MadeByClowd\Nusantara\Exceptions\PostalCodeValidationException;
+use MadeByClowd\Nusantara\Support\Geocoder;
+use MadeByClowd\Nusantara\Support\NikInfo;
+use MadeByClowd\Nusantara\Support\NikParser;
+use MadeByClowd\Nusantara\Support\PostalCodeResolver;
+use MadeByClowd\Nusantara\Support\RegionQuery;
+use MadeByClowd\Nusantara\Support\RegionSearch;
 
 class NusantaraService
 {
+    use HasNusantaraCaching;
+
+    protected ?RegionQuery $regionQuery = null;
+
+    protected ?RegionSearch $regionSearch = null;
+
+    protected ?NikParser $nikParser = null;
+
+    protected ?Geocoder $geocoder = null;
+
+    protected ?PostalCodeResolver $postalCodeResolver = null;
+
+    protected function regionQuery(): RegionQuery
+    {
+        return $this->regionQuery ??= new RegionQuery;
+    }
+
+    protected function regionSearch(): RegionSearch
+    {
+        return $this->regionSearch ??= new RegionSearch($this->regionQuery());
+    }
+
+    protected function nikParser(): NikParser
+    {
+        return $this->nikParser ??= new NikParser($this->regionQuery());
+    }
+
+    protected function geocoder(): Geocoder
+    {
+        return $this->geocoder ??= new Geocoder($this->regionQuery());
+    }
+
+    protected function postalCodeResolver(): PostalCodeResolver
+    {
+        return $this->postalCodeResolver ??= new PostalCodeResolver($this->regionQuery());
+    }
+
     /**
      * Get the configured Province model class name.
      */
     public function getProvinceModel(): string
     {
-        return config('nusantara.models.province', Models\Province::class);
+        return $this->regionQuery()->getProvinceModel();
     }
 
     /**
@@ -21,7 +66,7 @@ class NusantaraService
      */
     public function getRegencyModel(): string
     {
-        return config('nusantara.models.regency', Models\Regency::class);
+        return $this->regionQuery()->getRegencyModel();
     }
 
     /**
@@ -29,7 +74,7 @@ class NusantaraService
      */
     public function getDistrictModel(): string
     {
-        return config('nusantara.models.district', Models\District::class);
+        return $this->regionQuery()->getDistrictModel();
     }
 
     /**
@@ -37,7 +82,7 @@ class NusantaraService
      */
     public function getVillageModel(): string
     {
-        return config('nusantara.models.village', Models\Village::class);
+        return $this->regionQuery()->getVillageModel();
     }
 
     /**
@@ -45,9 +90,7 @@ class NusantaraService
      */
     public function provinces(): Collection
     {
-        return $this->remember('provinces', function () {
-            return $this->getProvinceModel()::all();
-        });
+        return $this->regionQuery()->provinces();
     }
 
     /**
@@ -57,9 +100,7 @@ class NusantaraService
      */
     public function findProvince(string $id)
     {
-        return $this->remember("province.{$id}", function () use ($id) {
-            return $this->getProvinceModel()::find($id);
-        });
+        return $this->regionQuery()->findProvince($id);
     }
 
     /**
@@ -67,11 +108,7 @@ class NusantaraService
      */
     public function regenciesOf(string $provinceId): Collection
     {
-        return $this->remember("regencies.{$provinceId}", function () use ($provinceId) {
-            $province = $this->findProvince($provinceId);
-
-            return $province ? $province->regencies : new Collection;
-        });
+        return $this->regionQuery()->regenciesOf($provinceId);
     }
 
     /**
@@ -81,9 +118,7 @@ class NusantaraService
      */
     public function findRegency(string $id)
     {
-        return $this->remember("regency.{$id}", function () use ($id) {
-            return $this->getRegencyModel()::find($id);
-        });
+        return $this->regionQuery()->findRegency($id);
     }
 
     /**
@@ -91,11 +126,7 @@ class NusantaraService
      */
     public function districtsOf(string $regencyId): Collection
     {
-        return $this->remember("districts.{$regencyId}", function () use ($regencyId) {
-            $regency = $this->findRegency($regencyId);
-
-            return $regency ? $regency->districts : new Collection;
-        });
+        return $this->regionQuery()->districtsOf($regencyId);
     }
 
     /**
@@ -105,9 +136,7 @@ class NusantaraService
      */
     public function findDistrict(string $id)
     {
-        return $this->remember("district.{$id}", function () use ($id) {
-            return $this->getDistrictModel()::find($id);
-        });
+        return $this->regionQuery()->findDistrict($id);
     }
 
     /**
@@ -115,11 +144,7 @@ class NusantaraService
      */
     public function villagesOf(string $districtId): Collection
     {
-        return $this->remember("villages.{$districtId}", function () use ($districtId) {
-            $district = $this->findDistrict($districtId);
-
-            return $district ? $district->villages : new Collection;
-        });
+        return $this->regionQuery()->villagesOf($districtId);
     }
 
     /**
@@ -129,85 +154,74 @@ class NusantaraService
      */
     public function findVillage(string $id)
     {
-        return $this->remember("village.{$id}", function () use ($id) {
-            return $this->getVillageModel()::find($id);
-        });
+        return $this->regionQuery()->findVillage($id);
     }
 
     /**
-     * Search regional names dynamically across all levels.
+     * Search regional names dynamically across all levels, or a single
+     * scoped level when $scope is given.
      */
-    public function search(string $query, int $limit = 20): array
+    public function search(string $query, int $limit = 20, int $offset = 0, ?string $scope = null): array
     {
-        $query = trim($query);
-        if (strlen($query) < 2) {
-            return [];
-        }
-
-        return $this->remember('search.'.md5($query).".{$limit}", function () use ($query, $limit) {
-            $results = [
-                'provinces' => [],
-                'regencies' => [],
-                'districts' => [],
-                'villages' => [],
-            ];
-
-            $provName = config('nusantara.columns.provinces.name.name', 'name');
-            $regName = config('nusantara.columns.regencies.name.name', 'name');
-            $distName = config('nusantara.columns.districts.name.name', 'name');
-            $vilName = config('nusantara.columns.villages.name.name', 'name');
-
-            $results['provinces'] = $this->getProvinceModel()::where($provName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
-            $results['regencies'] = $this->getRegencyModel()::where($regName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
-            $results['districts'] = $this->getDistrictModel()::where($distName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
-            $results['villages'] = $this->getVillageModel()::where($vilName, 'like', "%{$query}%")->limit($limit)->get()->toArray();
-
-            return $results;
-        });
+        return $this->regionSearch()->search($query, $limit, $offset, $scope);
     }
 
     /**
-     * Clear all cached regional queries.
+     * Fuzzy fallback for when search() misses due to typos. Not invoked
+     * automatically by search() — call it explicitly, e.g.
+     * `Nusantara::search($q) ?: Nusantara::searchFuzzy($q)`.
      */
-    public function clearCache(): bool
+    public function searchFuzzy(string $query, int $limit = 20, ?string $scope = null, int $maxDistance = 2): array
     {
-        $prefix = config('nusantara.cache.prefix', 'nusantara');
-
-        if (config('nusantara.cache.enabled', true)) {
-            try {
-                Cache::tags([$prefix])->flush();
-
-                return true;
-            } catch (\BadMethodCallException $e) {
-                // Fallback to flushing entire cache if tags are unsupported
-                return Cache::flush();
-            }
-        }
-
-        return false;
+        return $this->regionSearch()->searchFuzzy($query, $limit, $scope, $maxDistance);
     }
 
     /**
-     * Helper to wrap cache remembers.
+     * Parse a 16-digit NIK into its component parts.
      *
-     * @return mixed
+     * @throws NikValidationException
      */
-    protected function remember(string $key, \Closure $callback)
+    public function parseNik(string $nik, ?int $referenceYear = null, ?int $centuryOverride = null): NikInfo
     {
-        $enabled = config('nusantara.cache.enabled', true);
+        return $this->nikParser()->parse($nik, $referenceYear, $centuryOverride);
+    }
 
-        if (! $enabled) {
-            return $callback();
-        }
+    /**
+     * Check whether a NIK is structurally valid.
+     */
+    public function isValidNik(string $nik, ?int $referenceYear = null, ?int $centuryOverride = null): bool
+    {
+        return $this->nikParser()->isValid($nik, $referenceYear, $centuryOverride);
+    }
 
-        $prefix = config('nusantara.cache.prefix', 'nusantara');
-        $ttl = config('nusantara.cache.ttl', 86400);
+    /**
+     * Reverse-geocode a coordinate to the region containing it.
+     *
+     * @return Model|null
+     *
+     * @throws \InvalidArgumentException
+     * @throws \RuntimeException
+     */
+    public function findByCoordinate(float $lat, float $lng, string $level = 'village')
+    {
+        return $this->geocoder()->findByCoordinate($lat, $lng, $level);
+    }
 
-        try {
-            return Cache::tags([$prefix])->remember("{$prefix}.{$key}", $ttl, $callback);
-        } catch (\BadMethodCallException $e) {
-            // Fallback for cache drivers that do not support tags (e.g. database, file)
-            return Cache::remember("{$prefix}.{$key}", $ttl, $callback);
-        }
+    /**
+     * Resolve every village matching a postal code, with its hierarchy.
+     *
+     * @throws PostalCodeValidationException
+     */
+    public function resolvePostalCode(string $postalCode): Collection
+    {
+        return $this->postalCodeResolver()->resolve($postalCode);
+    }
+
+    /**
+     * Check whether a postal code is well-formed.
+     */
+    public function isValidPostalCode(string $postalCode): bool
+    {
+        return $this->postalCodeResolver()->isValid($postalCode);
     }
 }

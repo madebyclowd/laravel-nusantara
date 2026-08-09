@@ -25,13 +25,16 @@
     "require": {
         "php": "^8.2",
         "illuminate/support": "^11.0|^12.0|^13.0",
-        "illuminate/database": "^11.0|^12.0|^13.0"
+        "illuminate/database": "^11.0|^12.0|^13.0",
+        "illuminate/contracts": "^11.0|^12.0|^13.0",
+        "nesbot/carbon": "^2.71|^3.0"
     },
     "require-dev": {
         "guzzlehttp/guzzle": "^7.8",
         "laravel/pint": "^1.13",
         "orchestra/testbench": "^9.0|^10.0|^11.0",
-        "phpunit/phpunit": "^10.0|^11.0|^12.0|^13.0"
+        "phpunit/phpunit": "^10.0|^11.0|^12.0|^13.0",
+        "larastan/larastan": "^3.10"
     },
     "autoload": {
         "psr-4": {
