@@ -9,6 +9,11 @@ New entries are generated from `.changes/*.md` changesets — see
 Releases prior to this file's introduction (up to v1.1.9) are documented in
 the [GitHub Releases](https://github.com/madebyclowd/laravel-nusantara/releases) history.
 
+## [1.2.1] - 2026-08-10
+
+### Changed
+- Updated the Laravel Boost skill to document scoped/fuzzy search, legacy region-code fallback, NIK parsing, postal code resolution, reverse geocoding, and GeoJSON export.
+
 ## [1.2.0] - 2026-08-09
 
 ### Added
@@ -42,3 +47,5 @@ the [GitHub Releases](https://github.com/madebyclowd/laravel-nusantara/releases)
   for when `search()` finds nothing — it is never triggered automatically.
 
 [1.2.0]: https://github.com/madebyclowd/laravel-nusantara/compare/v1.1.9...v1.2.0
+
+[1.2.1]: https://github.com/madebyclowd/laravel-nusantara/compare/v1.2.0...v1.2.1
