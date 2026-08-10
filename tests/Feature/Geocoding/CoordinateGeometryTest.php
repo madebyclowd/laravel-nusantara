@@ -59,4 +59,26 @@ class CoordinateGeometryTest extends TestCase
         $this->assertSame(3, CoordinateGeometry::depth($polygon));
         $this->assertSame(4, CoordinateGeometry::depth($multiPolygon));
     }
+
+    /** @test */
+    public function test_depth_of_an_empty_array_is_one()
+    {
+        $this->assertSame(1, CoordinateGeometry::depth([]));
+    }
+
+    /** @test */
+    public function test_it_rejects_a_boundary_of_an_invalid_depth()
+    {
+        // Depth-2 array — neither a Polygon (3) nor a MultiPolygon (4).
+        $this->assertFalse(CoordinateGeometry::isPointInBoundary(5, 5, [[0, 0], [0, 10]]));
+    }
+
+    /** @test */
+    public function test_it_skips_a_ring_with_fewer_than_three_points()
+    {
+        // A degenerate ring (2 points) inside an otherwise-enclosing square.
+        $square = [[[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]], [[3, 3], [3, 7]]];
+
+        $this->assertTrue(CoordinateGeometry::isPointInBoundary(5, 5, $square));
+    }
 }

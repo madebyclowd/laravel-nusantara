@@ -187,6 +187,24 @@ class SeedingAndMigrationTest extends TestCase
         $response = $this->getJson('/api/nusantara/regencies?province_id=invalid');
         $response->assertStatus(422);
 
+        // Test Districts API
+        $response = $this->getJson('/api/nusantara/districts?regency_id=1101');
+        $response->assertStatus(200);
+        $response->assertJsonFragment(['name' => 'Bakongan']);
+
+        // Test Districts Validation Failure
+        $response = $this->getJson('/api/nusantara/districts?regency_id=invalid');
+        $response->assertStatus(422);
+
+        // Test Villages API
+        $response = $this->getJson('/api/nusantara/villages?district_id=110101');
+        $response->assertStatus(200);
+        $response->assertJsonStructure([['id', 'name']]);
+
+        // Test Villages Validation Failure
+        $response = $this->getJson('/api/nusantara/villages?district_id=invalid');
+        $response->assertStatus(422);
+
         // Test Search API
         $response = $this->getJson('/api/nusantara/search?q=Aceh');
         $response->assertStatus(200);

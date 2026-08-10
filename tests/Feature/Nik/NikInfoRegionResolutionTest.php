@@ -34,6 +34,22 @@ class NikInfoRegionResolutionTest extends SupportTestCase
     }
 
     /** @test */
+    public function test_to_array_returns_the_parsed_components()
+    {
+        $info = $this->parser->parse('1101011505900001');
+
+        $this->assertSame([
+            'nik' => '1101011505900001',
+            'province_id' => '11',
+            'regency_id' => '1101',
+            'district_id' => '110101',
+            'gender' => 'male',
+            'birth_date' => $info->birthDate->toDateString(),
+            'sequence' => '0001',
+        ], $info->toArray());
+    }
+
+    /** @test */
     public function test_it_resolves_through_the_legacy_region_code_fallback()
     {
         // Pre-2022 Papua: district 910101 no longer exists directly, but
