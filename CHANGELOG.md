@@ -9,6 +9,11 @@ New entries are generated from `.changes/*.md` changesets — see
 Releases prior to this file's introduction (up to v1.1.9) are documented in
 the [GitHub Releases](https://github.com/madebyclowd/laravel-nusantara/releases) history.
 
+## [1.2.2] - 2026-08-11
+
+### Fixed
+- Replaced the hand-rolled Boost skill publishing (custom publish tag, `boost:install`/`boost:update` event listener, `boost.json` mutation) with Laravel Boost's native auto-discovery of `resources/boost/`, matching the pattern used by `laravel-auto-sequence`. Added the missing `resources/boost/guidelines/laravel-nusantara.blade.php` guideline and a `laravel/boost` composer suggest entry. `nusantara:install` no longer prompts to publish AI agent skills — Boost picks the package up automatically.
+
 ## [1.2.1] - 2026-08-10
 
 ### Changed
@@ -49,3 +54,5 @@ the [GitHub Releases](https://github.com/madebyclowd/laravel-nusantara/releases)
 [1.2.0]: https://github.com/madebyclowd/laravel-nusantara/compare/v1.1.9...v1.2.0
 
 [1.2.1]: https://github.com/madebyclowd/laravel-nusantara/compare/v1.2.0...v1.2.1
+
+[1.2.2]: https://github.com/madebyclowd/laravel-nusantara/compare/v1.2.1...v1.2.2
