@@ -404,13 +404,25 @@ class DownloadBoundariesCommandTest extends TestCase
     /** @test */
     public function test_apply_boundary_column_builds_the_correct_column_definition_per_driver_and_storage_type()
     {
-        $blueprint = new Blueprint(DB::connection('testing'), 'tmp_boundary_test');
+        // The pgsql branch's spatialIndex() call genuinely requires a real
+        // PostgreSQL connection to execute (SQLite's grammar throws for
+        // unsupported spatial indexes) — disable spatial_index so this test
+        // still exercises the pgsql SRID-4326 column-type branch without
+        // needing a live PostGIS connection in this SQLite-only test suite.
+        config(['nusantara.boundaries.spatial_index' => false]);
 
-        $this->invoke('applyBoundaryColumn', [$blueprint, 'boundary', 'sqlite', 'spatial']);
-        $this->invoke('applyBoundaryColumn', [$blueprint, 'boundary', 'pgsql', 'spatial']);
-        $this->invoke('applyBoundaryColumn', [$blueprint, 'boundary', 'sqlite', 'text']);
+        foreach ([['sqlite', 'spatial'], ['pgsql', 'spatial'], ['sqlite', 'text']] as [$driver, $storageType]) {
+            Schema::connection('testing')->dropIfExists('tmp_boundary_test');
 
-        $this->addToAssertionCount(1);
+            Schema::connection('testing')->create('tmp_boundary_test', function (Blueprint $table) use ($driver, $storageType) {
+                $table->id();
+                $this->invoke('applyBoundaryColumn', [$table, 'boundary', $driver, $storageType]);
+            });
+
+            $this->assertTrue(Schema::connection('testing')->hasColumn('tmp_boundary_test', 'boundary'));
+        }
+
+        Schema::connection('testing')->dropIfExists('tmp_boundary_test');
     }
 
     /** @test */
