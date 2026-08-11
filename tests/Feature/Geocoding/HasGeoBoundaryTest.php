@@ -2,6 +2,8 @@
 
 namespace MadeByClowd\Nusantara\Tests\Feature\Geocoding;
 
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use MadeByClowd\Nusantara\Models\Province;
 use MadeByClowd\Nusantara\Seeders\NusantaraCoreSeeder;
 use MadeByClowd\Nusantara\Tests\TestCase;
@@ -94,5 +96,42 @@ class HasGeoBoundaryTest extends TestCase
         $geojson = Province::find('11')->toGeoJson();
 
         $this->assertNull($geojson['geometry']);
+    }
+
+    /** @test */
+    public function test_it_throws_when_boundary_is_populated_but_stored_as_a_native_spatial_column()
+    {
+        config(['nusantara.columns.provinces.boundary.enabled' => true]);
+        $this->artisan('migrate:fresh')->run();
+        $this->seed(NusantaraCoreSeeder::class);
+
+        Schema::table('provinces', function (Blueprint $table) {
+            $table->geometry('geom_boundary')->nullable();
+        });
+        config(['nusantara.columns.provinces.boundary.name' => 'geom_boundary']);
+
+        Province::find('11')->forceFill(['geom_boundary' => 'not-actually-wkb-but-non-null'])->save();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/does not yet support native spatial boundary columns/');
+
+        Province::find('11')->toGeoJson();
+    }
+
+    /** @test */
+    public function test_it_falls_back_to_a_point_when_a_spatial_boundary_column_is_null()
+    {
+        config(['nusantara.columns.provinces.boundary.enabled' => true]);
+        $this->artisan('migrate:fresh')->run();
+        $this->seed(NusantaraCoreSeeder::class);
+
+        Schema::table('provinces', function (Blueprint $table) {
+            $table->geometry('geom_boundary')->nullable();
+        });
+        config(['nusantara.columns.provinces.boundary.name' => 'geom_boundary']);
+
+        $geojson = Province::find('11')->toGeoJson();
+
+        $this->assertSame('Point', $geojson['geometry']['type']);
     }
 }
