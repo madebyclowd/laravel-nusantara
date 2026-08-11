@@ -6,6 +6,7 @@ use MadeByClowd\Nusantara\Facades\Nusantara;
 use MadeByClowd\Nusantara\Models\District;
 use MadeByClowd\Nusantara\Models\Province;
 use MadeByClowd\Nusantara\Models\Regency;
+use MadeByClowd\Nusantara\Models\Village;
 use MadeByClowd\Nusantara\Seeders\NusantaraCoreSeeder;
 use MadeByClowd\Nusantara\Tests\TestCase;
 
@@ -34,7 +35,7 @@ class NusantaraServiceTest extends TestCase
         $this->assertSame(Province::class, Nusantara::getProvinceModel());
         $this->assertSame(Regency::class, Nusantara::getRegencyModel());
         $this->assertSame(District::class, Nusantara::getDistrictModel());
-        $this->assertSame(\MadeByClowd\Nusantara\Models\Village::class, Nusantara::getVillageModel());
+        $this->assertSame(Village::class, Nusantara::getVillageModel());
     }
 
     /** @test */

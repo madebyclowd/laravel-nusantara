@@ -134,7 +134,7 @@ class GeocoderTest extends TestCase
         $method->setAccessible(true);
 
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessageMatches("/has no parent key/");
+        $this->expectExceptionMessageMatches('/has no parent key/');
 
         $method->invoke($this->geocoder, 'province', 'provinces');
     }
