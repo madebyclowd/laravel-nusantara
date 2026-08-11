@@ -15,7 +15,6 @@ class NusantaraInstallCommand extends Command
     protected $signature = 'nusantara:install
                             {--publish-config : Automatically publish configuration file}
                             {--publish-migrations : Automatically publish migrations files}
-                            {--publish-skills : Automatically publish AI Agent skills}
                             {--migrate : Automatically run database migrations}
                             {--seed : Automatically seed the database}';
 
@@ -35,7 +34,6 @@ class NusantaraInstallCommand extends Command
 
         $hasExplicitOptions = $this->option('publish-config') ||
             $this->option('publish-migrations') ||
-            $this->option('publish-skills') ||
             $this->option('migrate') ||
             $this->option('seed');
 
@@ -67,21 +65,7 @@ class NusantaraInstallCommand extends Command
             $this->components->info('Migrations published.');
         }
 
-        // 3. Publish AI Agent Skills
-        $publishSkills = $this->option('publish-skills') || (! $hasExplicitOptions && $this->confirm('Do you want to publish Nusantara AI Agent skills for your workspace?', true));
-        if ($publishSkills) {
-            $exit = $this->call('vendor:publish', [
-                '--tag' => 'nusantara-boost-skills',
-            ]);
-            if ($exit !== self::SUCCESS) {
-                $this->components->error('Failed to publish AI agent skills.');
-
-                return self::FAILURE;
-            }
-            $this->components->info('AI Agent skills published.');
-        }
-
-        // 4. Run Migrations
+        // 3. Run Migrations
         $runMigrations = $this->option('migrate') || (! $hasExplicitOptions && $this->confirm('Do you want to run the database migrations?', true));
         if ($runMigrations) {
             $exit = $this->call('migrate');
@@ -93,7 +77,7 @@ class NusantaraInstallCommand extends Command
             $this->components->info('Database migrations completed.');
         }
 
-        // 5. Seed Database
+        // 4. Seed Database
         $runSeeding = $this->option('seed') || (! $hasExplicitOptions && $this->confirm('Do you want to seed the database with Indonesia administrative regions?', true));
         if ($runSeeding) {
             $this->info('Seeding database. This may take a few moments...');

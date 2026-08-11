@@ -103,4 +103,39 @@ class GeocoderTest extends TestCase
 
         (new Geocoder)->findByCoordinate(2.9310, 97.4845, 'district');
     }
+
+    /** @test */
+    public function test_extract_boundary_coordinates_throws_for_a_spatial_column()
+    {
+        $method = new \ReflectionMethod(Geocoder::class, 'extractBoundaryCoordinates');
+        $method->setAccessible(true);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/does not yet support native spatial boundary columns/');
+
+        $method->invoke($this->geocoder, Province::find('11'), 'boundary', true, 'province');
+    }
+
+    /** @test */
+    public function test_extract_boundary_coordinates_returns_null_for_a_null_boundary()
+    {
+        $method = new \ReflectionMethod(Geocoder::class, 'extractBoundaryCoordinates');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($this->geocoder, Province::find('11'), 'boundary', false, 'province');
+
+        $this->assertNull($result);
+    }
+
+    /** @test */
+    public function test_parent_key_column_for_level_throws_for_a_level_without_a_parent()
+    {
+        $method = new \ReflectionMethod(Geocoder::class, 'parentKeyColumnForLevel');
+        $method->setAccessible(true);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessageMatches('/has no parent key/');
+
+        $method->invoke($this->geocoder, 'province', 'provinces');
+    }
 }

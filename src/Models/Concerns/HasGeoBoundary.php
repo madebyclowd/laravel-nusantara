@@ -14,6 +14,8 @@ trait HasGeoBoundary
      * py-nusantara's BaseRecord::to_geojson() fallback behavior.
      *
      * @return array<string, mixed>
+     *
+     * @throws \RuntimeException if `boundary` is populated but stored as a native spatial column (not yet supported — see class docs, mirrors Geocoder::findByCoordinate()'s same limitation).
      */
     public function toGeoJson(): array
     {
@@ -32,11 +34,18 @@ trait HasGeoBoundary
     protected function resolveGeoJsonGeometry(string $tableKey): ?array
     {
         $boundaryColumn = config("nusantara.columns.{$tableKey}.boundary.name", 'boundary');
-        $raw = Schema::connection($this->getConnectionName())->hasColumn($this->getTable(), $boundaryColumn)
-            ? $this->getRawOriginal($boundaryColumn)
-            : null;
+        $hasBoundaryColumn = Schema::connection($this->getConnectionName())->hasColumn($this->getTable(), $boundaryColumn);
+        $raw = $hasBoundaryColumn ? $this->getRawOriginal($boundaryColumn) : null;
 
         if ($raw !== null) {
+            if ($this->isSpatialBoundaryColumn($boundaryColumn)) {
+                throw new \RuntimeException(
+                    "toGeoJson() does not yet support native spatial boundary columns ('{$boundaryColumn}' on ".
+                    "'{$this->getTable()}' is stored as a spatial type, e.g. via config('nusantara.boundaries.type', 'spatial')). ".
+                    "Use text-mode boundary storage (config('nusantara.boundaries.type', 'text')) to read boundaries back as GeoJSON."
+                );
+            }
+
             $decoded = json_decode($raw, true);
 
             if (is_array($decoded)) {
@@ -62,6 +71,13 @@ trait HasGeoBoundary
             'type' => 'Point',
             'coordinates' => [(float) $lng, (float) $lat], // GeoJSON coordinate order is [lng, lat]
         ];
+    }
+
+    protected function isSpatialBoundaryColumn(string $boundaryColumn): bool
+    {
+        $type = strtolower(Schema::connection($this->getConnectionName())->getColumnType($this->getTable(), $boundaryColumn));
+
+        return str_contains($type, 'geometry') || str_contains($type, 'geography');
     }
 
     /**

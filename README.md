@@ -25,7 +25,7 @@ A highly customizable, enterprise-ready, and developer-friendly Laravel package 
 * **NIK & Postal Code Utilities**: Parse and validate Indonesian national ID (NIK) numbers and postal codes, with automatic resolution to their region hierarchy.
 * **Legacy Region Code Resolution**: Lookups transparently resolve pre-split historical region codes (e.g. pre-2022 Papua) to their current active equivalents.
 * **Scoped, Paginated & Fuzzy Search**: Restrict search to a single region level, paginate results, and fall back to typo-tolerant fuzzy matching on demand.
-* **AI-Agent Ready**: Automatically registers its developer instructions with **Laravel Boost** (`SKILL.md`) to help coding assistants query the dataset correctly.
+* **AI-Agent Ready**: Ships a **Laravel Boost** guideline and Agent Skill (`SKILL.md`), auto-discovered when Boost is installed, to help coding assistants query the dataset correctly.
 
 ---
 
@@ -360,12 +360,13 @@ All request parameters are strictly validated:
 
 ## 🤖 AI Agent Integration (Laravel Boost)
 
-This package features native integration with **Laravel Boost**. When you install or update the package in an application with Laravel Boost configured, the package automatically publishes an AI agent skill file (`SKILL.md`) to the host project at `.github/skills/laravel-nusantara/SKILL.md` or `.ai/skills/laravel-nusantara/SKILL.md`.
+This package ships an AI guideline (`resources/boost/guidelines/laravel-nusantara.blade.php`) and Agent Skill (`resources/boost/skills/laravel-nusantara/SKILL.md`). If [Laravel Boost](https://github.com/laravel/boost) is installed in your application, it auto-discovers both from this package — no publishing or configuration needed.
 
-This ensures that any AI coding assistant used by developers in their host application understands:
+This ensures that any AI coding assistant used by developers in the host application understands:
 1. Dynamic attribute mappings and configuration.
 2. The dynamic database columns/table schema.
 3. Best practices to avoid hardcoding table names in custom queries.
+4. The full facade API — search scoping/fuzzy matching, NIK parsing, postal code resolution, legacy region-code fallback, reverse geocoding, and GeoJSON export.
 
 ---
 

@@ -39,6 +39,14 @@ class RegionSearchFuzzyTest extends SupportTestCase
     }
 
     /** @test */
+    public function test_fuzzy_search_returns_empty_results_for_a_too_short_query()
+    {
+        $fuzzy = $this->regionSearch->searchFuzzy('a');
+
+        $this->assertSame([], $fuzzy);
+    }
+
+    /** @test */
     public function test_fuzzy_search_is_bounded_by_max_distance()
     {
         // "Acej" is distance 1 from "Aceh"; with maxDistance 0 it must not match.

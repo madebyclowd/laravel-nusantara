@@ -62,6 +62,14 @@ class NikParserTest extends TestCase
     }
 
     /** @test */
+    public function test_century_override_accepts_a_full_year_form()
+    {
+        $info = $this->parser->parse('1101011505900001', centuryOverride: 1800);
+
+        $this->assertSame(1890, $info->birthDate->year);
+    }
+
+    /** @test */
     public function test_it_rejects_a_nik_with_the_wrong_length()
     {
         $this->expectException(NikValidationException::class);

@@ -2,17 +2,13 @@
 
 namespace MadeByClowd\Nusantara\Tests\Feature;
 
-use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use MadeByClowd\Nusantara\Facades\Nusantara;
 use MadeByClowd\Nusantara\Models\Province;
 use MadeByClowd\Nusantara\Models\Regency;
 use MadeByClowd\Nusantara\Seeders\NusantaraCoreSeeder;
 use MadeByClowd\Nusantara\Tests\TestCase;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\NullOutput;
 
 class SeedingAndMigrationTest extends TestCase
 {
@@ -191,59 +187,28 @@ class SeedingAndMigrationTest extends TestCase
         $response = $this->getJson('/api/nusantara/regencies?province_id=invalid');
         $response->assertStatus(422);
 
+        // Test Districts API
+        $response = $this->getJson('/api/nusantara/districts?regency_id=1101');
+        $response->assertStatus(200);
+        $response->assertJsonFragment(['name' => 'Bakongan']);
+
+        // Test Districts Validation Failure
+        $response = $this->getJson('/api/nusantara/districts?regency_id=invalid');
+        $response->assertStatus(422);
+
+        // Test Villages API
+        $response = $this->getJson('/api/nusantara/villages?district_id=110101');
+        $response->assertStatus(200);
+        $response->assertJsonStructure([['id', 'name']]);
+
+        // Test Villages Validation Failure
+        $response = $this->getJson('/api/nusantara/villages?district_id=invalid');
+        $response->assertStatus(422);
+
         // Test Search API
         $response = $this->getJson('/api/nusantara/search?q=Aceh');
         $response->assertStatus(200);
         $response->assertJsonFragment(['name' => 'Aceh']);
-    }
-
-    /** @test */
-    public function test_it_automatically_publishes_boost_skills_when_boost_commands_run()
-    {
-        $targetSkillPath = base_path('.github/skills/laravel-nusantara/SKILL.md');
-        $boostJsonPath = base_path('boost.json');
-
-        if (file_exists($targetSkillPath)) {
-            unlink($targetSkillPath);
-        }
-        if (file_exists($boostJsonPath)) {
-            unlink($boostJsonPath);
-        }
-
-        // Create a dummy boost.json to verify auto-registration
-        file_put_contents($boostJsonPath, json_encode([
-            'skills' => ['laravel-best-practices'],
-        ]));
-
-        $this->assertFileDoesNotExist($targetSkillPath);
-
-        // Dispatch the CommandFinished event for boost:install
-        Event::dispatch(
-            new CommandFinished(
-                'boost:install',
-                new ArrayInput([]),
-                new NullOutput,
-                0
-            )
-        );
-
-        $this->assertFileExists($targetSkillPath);
-
-        // Assert boost.json was updated with our skill
-        $this->assertFileExists($boostJsonPath);
-        $boostJson = json_decode(file_get_contents($boostJsonPath), true);
-        $this->assertContains('laravel-nusantara', $boostJson['skills']);
-
-        // Cleanup
-        if (file_exists($targetSkillPath)) {
-            unlink($targetSkillPath);
-            if (is_dir(dirname($targetSkillPath))) {
-                rmdir(dirname($targetSkillPath));
-            }
-        }
-        if (file_exists($boostJsonPath)) {
-            unlink($boostJsonPath);
-        }
     }
 
     /** @test */
@@ -252,7 +217,6 @@ class SeedingAndMigrationTest extends TestCase
         $this->artisan('nusantara:install')
             ->expectsConfirmation('Do you want to publish the package configuration file?', 'no')
             ->expectsConfirmation('Do you want to publish the package migrations?', 'no')
-            ->expectsConfirmation('Do you want to publish Nusantara AI Agent skills for your workspace?', 'no')
             ->expectsConfirmation('Do you want to run the database migrations?', 'no')
             ->expectsConfirmation('Do you want to seed the database with Indonesia administrative regions?', 'no')
             ->assertExitCode(0);
