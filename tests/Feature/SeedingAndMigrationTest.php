@@ -212,6 +212,36 @@ class SeedingAndMigrationTest extends TestCase
     }
 
     /** @test */
+    public function test_it_indexes_name_and_postal_code_columns_for_search()
+    {
+        $this->artisan('migrate:fresh')->run();
+
+        foreach (['provinces', 'regencies', 'districts', 'villages'] as $table) {
+            $indexedColumns = collect(Schema::getIndexes($table))
+                ->flatMap(fn (array $index) => $index['columns'])
+                ->all();
+
+            $this->assertContains('name', $indexedColumns, "Expected an index on '{$table}.name'.");
+        }
+
+        $villageIndexedColumns = collect(Schema::getIndexes('villages'))
+            ->flatMap(fn (array $index) => $index['columns'])
+            ->all();
+
+        $this->assertContains('postal_code', $villageIndexedColumns, "Expected an index on 'villages.postal_code'.");
+    }
+
+    /** @test */
+    public function test_it_skips_the_postal_code_index_when_the_column_is_disabled()
+    {
+        config(['nusantara.columns.villages.postal_code.enabled' => false]);
+
+        $this->artisan('migrate:fresh')->run();
+
+        $this->assertFalse(Schema::hasColumn('villages', 'postal_code'));
+    }
+
+    /** @test */
     public function test_it_can_run_install_command_interactively()
     {
         $this->artisan('nusantara:install')

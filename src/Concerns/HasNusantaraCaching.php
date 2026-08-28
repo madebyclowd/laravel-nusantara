@@ -7,6 +7,16 @@ use Illuminate\Support\Facades\Cache;
 trait HasNusantaraCaching
 {
     /**
+     * Memoized tag-support probe result, keyed by cache driver name, so the
+     * BadMethodCallException path (thrown by untagged stores like `file` or
+     * `database`) is paid once per driver instead of on every single
+     * remember()/clearCache() call.
+     *
+     * @var array<string, bool>
+     */
+    protected static array $tagsSupported = [];
+
+    /**
      * Wrap a callback in a tag-safe cache remember, falling back to a
      * plain remember when the configured cache store doesn't support tags.
      *
@@ -23,12 +33,11 @@ trait HasNusantaraCaching
         $prefix = config('nusantara.cache.prefix', 'nusantara');
         $ttl = config('nusantara.cache.ttl', 86400);
 
-        try {
+        if ($this->cacheSupportsTags()) {
             return Cache::tags([$prefix])->remember("{$prefix}.{$key}", $ttl, $callback);
-        } catch (\BadMethodCallException $e) {
-            // Fallback for cache drivers that do not support tags (e.g. database, file)
-            return Cache::remember("{$prefix}.{$key}", $ttl, $callback);
         }
+
+        return Cache::remember("{$prefix}.{$key}", $ttl, $callback);
     }
 
     /**
@@ -38,17 +47,39 @@ trait HasNusantaraCaching
     {
         $prefix = config('nusantara.cache.prefix', 'nusantara');
 
-        if (config('nusantara.cache.enabled', true)) {
-            try {
-                Cache::tags([$prefix])->flush();
-
-                return true;
-            } catch (\BadMethodCallException $e) {
-                // Fallback to flushing entire cache if tags are unsupported
-                return Cache::flush();
-            }
+        if (! config('nusantara.cache.enabled', true)) {
+            return false;
         }
 
-        return false;
+        if ($this->cacheSupportsTags()) {
+            Cache::tags([$prefix])->flush();
+
+            return true;
+        }
+
+        return Cache::flush();
+    }
+
+    /**
+     * Whether the currently configured default cache store supports tags.
+     * Probed once per driver (not per call) since the untagged path throws
+     * a BadMethodCallException, which is expensive to pay on every request.
+     */
+    protected function cacheSupportsTags(): bool
+    {
+        $driver = Cache::getDefaultDriver();
+
+        return self::$tagsSupported[$driver] ??= $this->probeTagsSupport();
+    }
+
+    protected function probeTagsSupport(): bool
+    {
+        try {
+            Cache::tags(['__nusantara_tags_probe__'])->has('__nusantara_tags_probe__');
+
+            return true;
+        } catch (\BadMethodCallException $e) {
+            return false;
+        }
     }
 }
