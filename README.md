@@ -262,7 +262,11 @@ Nusantara::isValidPostalCode('23773'); // bool, format check only
 
 // 14. Reverse-geocode a coordinate to the region containing it
 // (requires the 'boundary' column enabled and populated at every level
-// up to $level — see "Geographic Boundaries" above)
+// up to $level — see "Geographic Boundaries" above). Under
+// config('nusantara.boundaries.type', 'spatial'), MySQL and
+// PostgreSQL/PostGIS use a real DB-side ST_Contains() pushdown (spatial
+// index gets used); SQL Server and SpatiaLite boundary columns still
+// throw until their pushdown lands.
 $village = Nusantara::findByCoordinate(lat: 2.931, lng: 97.484, level: 'village');
 
 // 15. Export any region as a GeoJSON Feature
