@@ -382,6 +382,33 @@ class DownloadBoundariesCommandTest extends TestCase
     }
 
     /** @test */
+    public function test_seed_boundary_file_bulk_writes_a_whole_chunk_in_one_select_and_one_update()
+    {
+        $content = "id,boundary\n"
+            ."11,\"[[[0,0],[0,10],[10,10],[10,0],[0,0]]]\"\n"
+            ."12,\"[[[0,0],[0,10],[10,10],[10,0],[0,0]]]\"\n"
+            ."13,\"[[[0,0],[0,10],[10,10],[10,0],[0,0]]]\"\n";
+        $path = $this->gzWrite('provinces.csv.gz', $content);
+
+        DB::connection('testing')->enableQueryLog();
+
+        $seeded = $this->invoke('seedBoundaryFile', [$path, 'provinces', 'testing', 'sqlite', 'text', false, 500, new ProgressBar(new NullOutput)]);
+
+        $log = DB::connection('testing')->getQueryLog();
+        DB::connection('testing')->disableQueryLog();
+
+        // Schema introspection (hasColumn()/getColumnType(), called a fixed number of
+        // times regardless of row count) also logs as "select" — filter down to the
+        // existence-check query specifically, since that's audit-004's actual concern.
+        $selects = array_filter($log, fn ($entry) => str_contains(strtolower($entry['query']), 'where "id" in'));
+        $updates = array_filter($log, fn ($entry) => str_starts_with(strtolower($entry['query']), 'update'));
+
+        $this->assertSame(3, $seeded);
+        $this->assertCount(1, $selects, 'Expected exactly one bulk existence-check query for the whole chunk, not one per row.');
+        $this->assertCount(1, $updates, 'Expected exactly one bulk UPDATE statement for the whole chunk, not one per row.');
+    }
+
+    /** @test */
     public function test_get_spatial_expression_placeholder_varies_by_driver()
     {
         $this->assertSame('geometry::STGeomFromText(?, 4326)', $this->invoke('getSpatialExpressionPlaceholder', ['sqlsrv']));
