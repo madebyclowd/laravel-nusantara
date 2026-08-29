@@ -99,6 +99,20 @@ If your application requires geographic boundary shapes (polygons), you can down
 
 *(Note: The command will download, verify checksums, and seed the high-resolution GIS coordinates into your database automatically).*
 
+### Minimum Database Version (Spatial Storage)
+
+`config('nusantara.boundaries.type', 'spatial')` writes native `geometry`/`geography` columns using each driver's own `ST_GeomFromText`-family function. The floors below are derived, not assumed — the higher of what the spatial-decode library (`brick/geo`, `suggest`-only) states as its own minimum, and what this package's write path (`ST_GeomFromText` / `geometry::STGeomFromText`) requires:
+
+| Driver | Minimum version | Notes |
+|---|---|---|
+| MySQL | 5.6+ | `brick/geo`'s stated `PdoEngine` floor. |
+| MariaDB | 5.5+ | `brick/geo`'s stated `PdoEngine` floor. |
+| PostgreSQL + PostGIS | Any currently-supported PostGIS extension version | Neither `brick/geo` nor this package's write path states a hard floor — tied to whichever PostGIS version is installed. Empirically verified in CI against PostgreSQL 17 + PostGIS 3.5. |
+| SQL Server | 2008+ | Native `geometry` data type (used via `geometry::STGeomFromText`) was introduced in SQL Server 2008; `brick/geo` does not cover this driver at all. |
+| SQLite + SpatiaLite | Any version with `mod_spatialite` loaded | No hard floor stated by `brick/geo` — tied to whichever SpatiaLite extension version is installed. |
+
+`config('nusantara.boundaries.type', 'text')` (the fallback/default read path) has no spatial-extension requirement at all — it stores raw GeoJSON coordinate arrays as `LONGTEXT`.
+
 ---
 
 ## ⚙️ Configuration

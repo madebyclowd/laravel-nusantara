@@ -73,7 +73,7 @@ class Geocoder
             );
         }
 
-        $isSpatialColumn = $this->isSpatialColumn($connectionName, $tableName, $boundaryColumn);
+        $isSpatialColumn = SpatialColumn::isSpatial($connectionName, $tableName, $boundaryColumn);
 
         $query = $modelClass::query()->whereNotNull($boundaryColumn);
 
@@ -115,13 +115,6 @@ class Geocoder
         $decoded = json_decode($raw, true);
 
         return is_array($decoded) ? $decoded : null;
-    }
-
-    protected function isSpatialColumn(?string $connection, string $table, string $column): bool
-    {
-        $type = strtolower(Schema::connection($connection)->getColumnType($table, $column));
-
-        return str_contains($type, 'geometry') || str_contains($type, 'geography');
     }
 
     /**

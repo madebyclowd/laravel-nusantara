@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use MadeByClowd\Nusantara\Manifest;
+use MadeByClowd\Nusantara\Support\SpatialColumn;
 
 class DownloadBoundariesCommand extends Command
 {
@@ -274,7 +275,7 @@ class DownloadBoundariesCommand extends Command
 
         // Column exists — check for type mismatch between desired storage type and actual column type.
         $columnType = strtolower($schema->getColumnType($tableName, $boundaryColName));
-        $isSpatialColumn = str_contains($columnType, 'geometry') || str_contains($columnType, 'geography');
+        $isSpatialColumn = SpatialColumn::isSpatial($connection, $tableName, $boundaryColName);
 
         $needsUpgrade = $storageType === 'spatial' && ! $isSpatialColumn;
         $needsDowngrade = $storageType === 'text' && $isSpatialColumn;

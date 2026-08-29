@@ -4,6 +4,7 @@ namespace MadeByClowd\Nusantara\Models\Concerns;
 
 use Illuminate\Support\Facades\Schema;
 use MadeByClowd\Nusantara\Support\CoordinateGeometry;
+use MadeByClowd\Nusantara\Support\SpatialColumn;
 
 trait HasGeoBoundary
 {
@@ -38,7 +39,7 @@ trait HasGeoBoundary
         $raw = $hasBoundaryColumn ? $this->getRawOriginal($boundaryColumn) : null;
 
         if ($raw !== null) {
-            if ($this->isSpatialBoundaryColumn($boundaryColumn)) {
+            if (SpatialColumn::isSpatial($this->getConnectionName(), $this->getTable(), $boundaryColumn)) {
                 throw new \RuntimeException(
                     "toGeoJson() does not yet support native spatial boundary columns ('{$boundaryColumn}' on ".
                     "'{$this->getTable()}' is stored as a spatial type, e.g. via config('nusantara.boundaries.type', 'spatial')). ".
@@ -71,13 +72,6 @@ trait HasGeoBoundary
             'type' => 'Point',
             'coordinates' => [(float) $lng, (float) $lat], // GeoJSON coordinate order is [lng, lat]
         ];
-    }
-
-    protected function isSpatialBoundaryColumn(string $boundaryColumn): bool
-    {
-        $type = strtolower(Schema::connection($this->getConnectionName())->getColumnType($this->getTable(), $boundaryColumn));
-
-        return str_contains($type, 'geometry') || str_contains($type, 'geography');
     }
 
     /**
