@@ -34,10 +34,12 @@
         "laravel/pint": "^1.13",
         "orchestra/testbench": "^9.0|^10.0|^11.0",
         "phpunit/phpunit": "^10.0|^11.0|^12.0|^13.0",
-        "larastan/larastan": "^3.10"
+        "larastan/larastan": "^3.10",
+        "brick/geo": "^0.13"
     },
     "suggest": {
-        "laravel/boost": "Auto-discovers this package's AI guidelines and agent skill from resources/boost/ — no extra setup needed."
+        "laravel/boost": "Auto-discovers this package's AI guidelines and agent skill from resources/boost/ — no extra setup needed.",
+        "brick/geo": "Required to decode native spatial boundary columns (config('nusantara.boundaries.type', 'spatial')) into GeoJSON via toGeoJson()."
     },
     "autoload": {
         "psr-4": {
