@@ -41,6 +41,38 @@ trait HasNusantaraCaching
     }
 
     /**
+     * Like remember(), but guards the cache-miss path with Cache::lock() so
+     * concurrent first-requests for the same key block on a single caller
+     * doing the work instead of every caller redundantly running the
+     * (potentially expensive) callback before the cache fills — cache
+     * stampede protection for costly one-off computations (e.g. WKB decode),
+     * not needed by remember()'s existing bulk-query callers.
+     *
+     * @return mixed
+     */
+    protected function rememberLocked(string $key, \Closure $callback)
+    {
+        $enabled = config('nusantara.cache.enabled', true);
+
+        if (! $enabled) {
+            return $callback();
+        }
+
+        $prefix = config('nusantara.cache.prefix', 'nusantara');
+        $ttl = config('nusantara.cache.ttl', 86400);
+        $fullKey = "{$prefix}.{$key}";
+        $store = $this->cacheSupportsTags() ? Cache::tags([$prefix]) : Cache::store();
+
+        if ($store->has($fullKey)) {
+            return $store->get($fullKey);
+        }
+
+        return Cache::lock("{$fullKey}.lock", 10)->block(5, function () use ($store, $fullKey, $ttl, $callback) {
+            return $store->remember($fullKey, $ttl, $callback);
+        });
+    }
+
+    /**
      * Clear all cached regional queries.
      */
     public function clearCache(): bool

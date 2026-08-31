@@ -30,6 +30,10 @@ through `HasDynamicNusantaraFields` rather than hardcoded.
 - `findByCoordinate()` requires the `boundary` column enabled at every level down to (and including)
   the target `$level`, not just the target level — otherwise it throws `\RuntimeException`.
 - `resolvePostalCode()`/`isValidPostalCode()` require `nusantara.columns.villages.postal_code.enabled`.
+- `toGeoJson()` decodes native spatial `boundary` columns (`config('nusantara.boundaries.type', 'spatial')`)
+  via the optional `brick/geo` package, verified on MySQL and PostgreSQL/PostGIS only — SQL Server/
+  SpatiaLite and a missing `brick/geo` both throw `\RuntimeException`; corrupt WKB throws
+  `MalformedWkbException` instead of returning wrong data.
 
 See the `laravel-nusantara` Agent Skill (installed alongside this guideline) for the full facade/API
 reference, config customization examples, and verification checklist.

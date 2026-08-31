@@ -166,9 +166,12 @@ Throws `\InvalidArgumentException` for an invalid `$level`, `\RuntimeException` 
 Every model (`Province`, `Regency`, `District`, `Village`) has `toGeoJson()` via the `HasGeoBoundary` trait:
 ```php
 $geojson = $province->toGeoJson();
-// Polygon/MultiPolygon Feature if boundary is populated (coords swapped to GeoJSON [lng, lat] order),
-// falls back to a Point Feature from lat/lng when boundary is disabled or null.
+// Polygon/MultiPolygon Feature if boundary is populated — text-mode storage decodes
+// its stored [lat, lng] JSON directly, native spatial storage (config('nusantara.boundaries.type', 'spatial'))
+// decodes real WKB via brick/geo on MySQL and PostgreSQL/PostGIS. Falls back to a Point
+// Feature from lat/lng when boundary is disabled or null.
 ```
+Decoding a native spatial `boundary` column requires the optional `brick/geo` package (`composer require brick/geo`) and is only verified on MySQL/PostgreSQL — SQL Server/SpatiaLite throw `\RuntimeException` for now. A corrupt/truncated spatial value throws `MadeByClowd\Nusantara\Exceptions\MalformedWkbException` instead of returning wrong data. Decoded spatial geometry is cached per row (invalidates automatically when the underlying boundary value changes, e.g. after `nusantara:download-boundaries --force`).
 
 ### Writing Custom Queries
 
@@ -211,3 +214,4 @@ $results = DB::table($tableName)
 - Assuming `parseNik()`/`isValidNik()` verify that embedded region codes correspond to real regions — validation is structural only. Region resolution is separate via `$info->district()`/`regency()`/`province()`.
 - Passing an invalid `scope` to `search()`/`searchFuzzy()` — must be one of `provinces`, `regencies`, `districts`, `villages`, or `null`.
 - Calling `findByCoordinate()` at `village` level while only `province`/`village` boundaries are enabled — every intermediate level's `boundary` column must also be enabled, or it throws `\RuntimeException`.
+- Calling `toGeoJson()` on a native spatial `boundary` column without `brick/geo` installed, or on SQL Server/SpatiaLite — both throw `\RuntimeException`; decoding is currently only verified for MySQL and PostgreSQL/PostGIS.

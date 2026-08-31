@@ -98,8 +98,16 @@ class HasGeoBoundaryTest extends TestCase
         $this->assertNull($geojson['geometry']);
     }
 
-    /** @test */
-    public function test_it_throws_when_boundary_is_populated_but_stored_as_a_native_spatial_column()
+    /**
+     * The default test connection is sqlite — SpatiaLite's WKB retrieval
+     * syntax isn't live-verified yet (BoundaryWkbQuery::VERIFIED_DRIVERS is
+     * MySQL/PostgreSQL only), so this still throws, same as before Phase 04.
+     * What's no longer true (see the live-DB tests in this class) is that
+     * *every* spatial driver throws — MySQL/PostgreSQL now decode real WKB.
+     *
+     * @test
+     */
+    public function test_it_throws_when_boundary_is_populated_on_an_unverified_spatial_driver()
     {
         config(['nusantara.columns.provinces.boundary.enabled' => true]);
         $this->artisan('migrate:fresh')->run();
