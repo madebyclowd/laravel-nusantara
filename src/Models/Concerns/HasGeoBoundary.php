@@ -155,7 +155,14 @@ trait HasGeoBoundary
             ->selectRaw("{$selectExpr} AS wkb")
             ->value('wkb');
 
-        if ($wkb === null) {
+        // PostgreSQL's PDO driver returns `bytea` columns as a stream
+        // resource, not a string — same handling export-wkb-fixtures.php
+        // already needs for the identical retrieval query.
+        if (is_resource($wkb)) {
+            $wkb = stream_get_contents($wkb);
+        }
+
+        if ($wkb === null || $wkb === false) {
             throw new MalformedWkbException(
                 "Spatial boundary column '{$boundaryColumn}' on '{$this->getTable()}' returned no WKB for key ".
                 "'{$this->getKey()}' — the row may have been deleted or the boundary cleared since this model was loaded."
