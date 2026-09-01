@@ -1,6 +1,5 @@
 /vendor/
 /.phpunit.cache/
-/docs/
 .env
 .env.*
 .phpunit.result.cache
