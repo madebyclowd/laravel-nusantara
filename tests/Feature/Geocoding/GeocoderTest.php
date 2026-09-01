@@ -105,26 +105,35 @@ class GeocoderTest extends TestCase
     }
 
     /** @test */
-    public function test_extract_boundary_coordinates_throws_for_a_spatial_column()
-    {
-        $method = new \ReflectionMethod(Geocoder::class, 'extractBoundaryCoordinates');
-        $method->setAccessible(true);
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessageMatches('/does not yet support native spatial boundary columns/');
-
-        $method->invoke($this->geocoder, Province::find('11'), 'boundary', true, 'province');
-    }
-
-    /** @test */
     public function test_extract_boundary_coordinates_returns_null_for_a_null_boundary()
     {
         $method = new \ReflectionMethod(Geocoder::class, 'extractBoundaryCoordinates');
         $method->setAccessible(true);
 
-        $result = $method->invoke($this->geocoder, Province::find('11'), 'boundary', false, 'province');
+        $result = $method->invoke($this->geocoder, Province::find('11'), 'boundary');
 
         $this->assertNull($result);
+    }
+
+    /** @test */
+    public function test_find_containing_region_spatial_throws_for_a_driver_without_pushdown_support()
+    {
+        // Config-only fake connection (driver name is read straight from config,
+        // no actual SpatiaLite extension/instance needed to exercise this branch).
+        // 'sqlite' here stands in for SpatiaLite — still unverified, unlike
+        // mysql/pgsql/sqlsrv which all have real pushdown support now.
+        config(['database.connections.testing_spatialite_fake' => [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+        ]]);
+
+        $method = new \ReflectionMethod(Geocoder::class, 'findContainingRegionSpatial');
+        $method->setAccessible(true);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches("/does not yet support native spatial boundary columns on the 'sqlite' driver/");
+
+        $method->invoke($this->geocoder, Province::query(), 'testing_spatialite_fake', 'boundary', 2.9310, 97.4845, 'province');
     }
 
     /** @test */

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use MadeByClowd\Nusantara\Manifest;
+use MadeByClowd\Nusantara\Support\SpatialColumn;
 
 class DownloadBoundariesCommand extends Command
 {
@@ -274,7 +275,7 @@ class DownloadBoundariesCommand extends Command
 
         // Column exists — check for type mismatch between desired storage type and actual column type.
         $columnType = strtolower($schema->getColumnType($tableName, $boundaryColName));
-        $isSpatialColumn = str_contains($columnType, 'geometry') || str_contains($columnType, 'geography');
+        $isSpatialColumn = SpatialColumn::isSpatial($connection, $tableName, $boundaryColName);
 
         $needsUpgrade = $storageType === 'spatial' && ! $isSpatialColumn;
         $needsDowngrade = $storageType === 'text' && $isSpatialColumn;
@@ -301,7 +302,7 @@ class DownloadBoundariesCommand extends Command
         }
 
         $seededCount = 0;
-        $batch = [];
+        $chunk = [];
         while (($row = fgetcsv($handle)) !== false) {
             if (count($headers) !== count($row)) {
                 $progressBar->advance();
@@ -319,42 +320,16 @@ class DownloadBoundariesCommand extends Command
                 continue;
             }
 
-            // If not forced, skip updating if boundary already exists in database
-            if (! $force) {
-                $exists = DB::connection($connection)->table($tableName)
-                    ->where($idColName, $id)
-                    ->whereNotNull($boundaryColName)
-                    ->exists();
-                if ($exists) {
-                    $progressBar->advance();
+            $chunk[$id] = $boundaryJson;
 
-                    continue;
-                }
-            }
-
-            if ($storageType === 'spatial') {
-                $wkt = $this->jsonToWkt($boundaryJson);
-                if ($wkt) {
-                    $batch[$id] = $wkt;
-                } else {
-                    $progressBar->advance();
-                }
-            } else {
-                $batch[$id] = $boundaryJson;
-            }
-
-            if (count($batch) >= $chunkSize) {
-                $this->updateBatch($connection, $tableName, $idColName, $boundaryColName, $batch, $driver, $storageType);
-                $progressBar->advance(count($batch));
-                $seededCount += count($batch);
-                $batch = [];
+            if (count($chunk) >= $chunkSize) {
+                $seededCount += $this->flushChunk($connection, $tableName, $idColName, $boundaryColName, $chunk, $driver, $storageType, $force, $progressBar);
+                $chunk = [];
             }
         }
 
-        if (count($batch) > 0) {
-            $this->updateBatch($connection, $tableName, $idColName, $boundaryColName, $batch, $driver, $storageType);
-            $progressBar->advance(count($batch));
-            $seededCount += count($batch);
+        if (count($chunk) > 0) {
+            $seededCount += $this->flushChunk($connection, $tableName, $idColName, $boundaryColName, $chunk, $driver, $storageType, $force, $progressBar);
         }
 
         if ($isLocalBar) {
@@ -370,26 +345,96 @@ class DownloadBoundariesCommand extends Command
     }
 
     /**
-     * Perform batch update inside transaction.
+     * Resolve one chunk of raw (id => boundaryJson) CSV rows into a database
+     * write in a bounded number of round trips: at most one existence-check
+     * query (skipped entirely when `--force`) plus one bulk `updateBatch()`
+     * call, instead of one of each per row (see `laravel-nusantara-audit-004-download-boundaries-n-plus-one`).
+     *
+     * @param  array<string, string>  $chunk  id => raw boundary JSON string.
+     * @return int The number of rows actually written.
+     */
+    protected function flushChunk($connection, string $tableName, string $idCol, string $boundaryCol, array $chunk, string $driver, string $storageType, bool $force, $progressBar): int
+    {
+        if (! $force) {
+            $existingIds = DB::connection($connection)->table($tableName)
+                ->whereIn($idCol, array_keys($chunk))
+                ->whereNotNull($boundaryCol)
+                ->pluck($idCol);
+
+            $skipped = 0;
+            foreach ($existingIds as $existingId) {
+                if (array_key_exists($existingId, $chunk)) {
+                    unset($chunk[$existingId]);
+                    $skipped++;
+                }
+            }
+
+            if ($skipped > 0) {
+                $progressBar->advance($skipped);
+            }
+        }
+
+        $batch = [];
+        $unconvertible = 0;
+        foreach ($chunk as $id => $boundaryJson) {
+            if ($storageType === 'spatial') {
+                $wkt = $this->jsonToWkt($boundaryJson);
+                if ($wkt) {
+                    $batch[$id] = $wkt;
+                } else {
+                    $unconvertible++;
+                }
+            } else {
+                $batch[$id] = $boundaryJson;
+            }
+        }
+
+        if ($unconvertible > 0) {
+            $progressBar->advance($unconvertible);
+        }
+
+        if (empty($batch)) {
+            return 0;
+        }
+
+        $this->updateBatch($connection, $tableName, $idCol, $boundaryCol, $batch, $driver, $storageType);
+        $progressBar->advance(count($batch));
+
+        return count($batch);
+    }
+
+    /**
+     * Bulk-write a whole chunk in a single statement: `UPDATE {table} SET
+     * {boundary} = CASE {id} WHEN ? THEN {valueExpr} ... END WHERE {id} IN
+     * (...)`. One portable shape for all 4 drivers — see this phase's impl
+     * doc for why a `CASE` bulk update was chosen over a driver-native
+     * upsert (`ON DUPLICATE KEY UPDATE` / `ON CONFLICT` / `MERGE`).
      */
     protected function updateBatch($connection, string $tableName, string $idCol, string $boundaryCol, array $batch, string $driver, string $storageType): void
     {
+        if (empty($batch)) {
+            return;
+        }
+
         DB::connection($connection)->transaction(function () use ($connection, $tableName, $idCol, $boundaryCol, $batch, $driver, $storageType) {
-            if ($storageType === 'spatial') {
-                $placeholder = $this->getSpatialExpressionPlaceholder($driver);
-                foreach ($batch as $id => $val) {
-                    DB::connection($connection)->update(
-                        "UPDATE {$tableName} SET {$boundaryCol} = {$placeholder} WHERE {$idCol} = ?",
-                        [$val, $id]
-                    );
-                }
-            } else {
-                foreach ($batch as $id => $val) {
-                    DB::connection($connection)->table($tableName)
-                        ->where($idCol, $id)
-                        ->update([$boundaryCol => $val]);
-                }
+            $valueExpr = $storageType === 'spatial' ? $this->getSpatialExpressionPlaceholder($driver) : '?';
+
+            $cases = [];
+            $bindings = [];
+            $ids = [];
+
+            foreach ($batch as $id => $val) {
+                $ids[] = $id;
+                $cases[] = "WHEN ? THEN {$valueExpr}";
+                $bindings[] = $id;
+                $bindings[] = $val;
             }
+
+            $idPlaceholders = implode(', ', array_fill(0, count($ids), '?'));
+
+            $sql = "UPDATE {$tableName} SET {$boundaryCol} = CASE {$idCol} ".implode(' ', $cases)." END WHERE {$idCol} IN ({$idPlaceholders})";
+
+            DB::connection($connection)->update($sql, array_merge($bindings, $ids));
         });
     }
 

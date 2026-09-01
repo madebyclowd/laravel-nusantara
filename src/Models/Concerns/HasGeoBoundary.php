@@ -2,11 +2,19 @@
 
 namespace MadeByClowd\Nusantara\Models\Concerns;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use MadeByClowd\Nusantara\Concerns\HasNusantaraCaching;
+use MadeByClowd\Nusantara\Exceptions\MalformedWkbException;
 use MadeByClowd\Nusantara\Support\CoordinateGeometry;
+use MadeByClowd\Nusantara\Support\Spatial\BoundaryWkbQuery;
+use MadeByClowd\Nusantara\Support\Spatial\GeometryReader;
+use MadeByClowd\Nusantara\Support\SpatialColumn;
 
 trait HasGeoBoundary
 {
+    use HasNusantaraCaching;
+
     /**
      * Convert this region to a GeoJSON Feature. Uses the `boundary` column
      * (Polygon/MultiPolygon) when enabled and populated, falling back to a
@@ -15,7 +23,8 @@ trait HasGeoBoundary
      *
      * @return array<string, mixed>
      *
-     * @throws \RuntimeException if `boundary` is populated but stored as a native spatial column (not yet supported — see class docs, mirrors Geocoder::findByCoordinate()'s same limitation).
+     * @throws \RuntimeException if `boundary` is populated but stored as a native spatial column on a driver without verified WKB retrieval yet (SpatiaLite — see BoundaryWkbQuery::VERIFIED_DRIVERS; MySQL, PostgreSQL/PostGIS, and SQL Server decode via brick/geo).
+     * @throws MalformedWkbException if a native spatial `boundary` column holds corrupt/unsupported WKB.
      */
     public function toGeoJson(): array
     {
@@ -38,22 +47,12 @@ trait HasGeoBoundary
         $raw = $hasBoundaryColumn ? $this->getRawOriginal($boundaryColumn) : null;
 
         if ($raw !== null) {
-            if ($this->isSpatialBoundaryColumn($boundaryColumn)) {
-                throw new \RuntimeException(
-                    "toGeoJson() does not yet support native spatial boundary columns ('{$boundaryColumn}' on ".
-                    "'{$this->getTable()}' is stored as a spatial type, e.g. via config('nusantara.boundaries.type', 'spatial')). ".
-                    "Use text-mode boundary storage (config('nusantara.boundaries.type', 'text')) to read boundaries back as GeoJSON."
-                );
-            }
+            $geometry = SpatialColumn::isSpatial($this->getConnectionName(), $this->getTable(), $boundaryColumn)
+                ? $this->resolveSpatialBoundaryGeometry($boundaryColumn, $raw)
+                : $this->resolveTextBoundaryGeometry($raw);
 
-            $decoded = json_decode($raw, true);
-
-            if (is_array($decoded)) {
-                $geometry = $this->coordinatesToGeoJsonGeometry($decoded);
-
-                if ($geometry !== null) {
-                    return $geometry;
-                }
+            if ($geometry !== null) {
+                return $geometry;
             }
         }
 
@@ -71,13 +70,6 @@ trait HasGeoBoundary
             'type' => 'Point',
             'coordinates' => [(float) $lng, (float) $lat], // GeoJSON coordinate order is [lng, lat]
         ];
-    }
-
-    protected function isSpatialBoundaryColumn(string $boundaryColumn): bool
-    {
-        $type = strtolower(Schema::connection($this->getConnectionName())->getColumnType($this->getTable(), $boundaryColumn));
-
-        return str_contains($type, 'geometry') || str_contains($type, 'geography');
     }
 
     /**
@@ -103,6 +95,81 @@ trait HasGeoBoundary
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function resolveTextBoundaryGeometry(string $raw): ?array
+    {
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $this->coordinatesToGeoJsonGeometry($decoded) : null;
+    }
+
+    /**
+     * Decodes a native spatial `boundary` column into GeoJSON, cached per
+     * row (keyed by table + primary key + a hash of the raw column value,
+     * so a `--force` re-download naturally invalidates the cache without an
+     * explicit clear) and guarded against cache-stampede via
+     * HasNusantaraCaching::rememberLocked() (decision 7b).
+     *
+     * @param  mixed  $raw  The model's raw (uncast) attribute value for `$boundaryColumn` — not itself WKB (its exact
+     *                      shape is driver-internal); used only as a cheap, stable input to the cache key's hash.
+     * @return array{type: string, coordinates: array<int, mixed>}
+     *
+     * @throws \RuntimeException if the connection's driver has no verified WKB retrieval query yet.
+     * @throws MalformedWkbException if the retrieved WKB is corrupt/unsupported.
+     */
+    protected function resolveSpatialBoundaryGeometry(string $boundaryColumn, $raw): array
+    {
+        $cacheKey = "boundary-wkb.{$this->getTable()}.{$this->getKey()}.".md5((string) $raw);
+
+        return $this->rememberLocked($cacheKey, fn () => GeometryReader::decode($this->fetchBoundaryWkb($boundaryColumn)));
+    }
+
+    /**
+     * Retrieves the current row's boundary column as canonical WKB via
+     * Phase 03's per-driver query (`ST_AsBinary()`/`AsBinary()`/`.STAsBinary()`)
+     * — `getRawOriginal()` can't be reused here since it reads the plain
+     * column value, not this `ST_AsBinary()`-wrapped projection.
+     */
+    protected function fetchBoundaryWkb(string $boundaryColumn): string
+    {
+        $connectionName = $this->getConnectionName();
+        $driver = DB::connection($connectionName)->getDriverName();
+
+        if (! BoundaryWkbQuery::isVerified($driver)) {
+            throw new \RuntimeException(
+                "toGeoJson() does not yet support native spatial boundary columns on the '{$driver}' driver ".
+                "('{$boundaryColumn}' on '{$this->getTable()}' is stored as a spatial type, e.g. via config('nusantara.boundaries.type', 'spatial')). ".
+                'WKB retrieval is currently only verified for MySQL, PostgreSQL/PostGIS, and SQL Server (see BoundaryWkbQuery::VERIFIED_DRIVERS).'
+            );
+        }
+
+        $selectExpr = BoundaryWkbQuery::selectExpression($driver, $boundaryColumn);
+
+        $wkb = DB::connection($connectionName)
+            ->table($this->getTable())
+            ->where($this->getKeyName(), $this->getKey())
+            ->selectRaw("{$selectExpr} AS wkb")
+            ->value('wkb');
+
+        // PostgreSQL's PDO driver returns `bytea` columns as a stream
+        // resource, not a string — same handling export-wkb-fixtures.php
+        // already needs for the identical retrieval query.
+        if (is_resource($wkb)) {
+            $wkb = stream_get_contents($wkb);
+        }
+
+        if ($wkb === null || $wkb === false) {
+            throw new MalformedWkbException(
+                "Spatial boundary column '{$boundaryColumn}' on '{$this->getTable()}' returned no WKB for key ".
+                "'{$this->getKey()}' — the row may have been deleted or the boundary cleared since this model was loaded."
+            );
+        }
+
+        return $wkb;
     }
 
     /**

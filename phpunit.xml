@@ -9,10 +9,24 @@
          failOnEmptyTestSuite="true"
          beStrictAboutOutputDuringTests="true"
          cacheDirectory=".phpunit.cache"
+         defaultTestSuite="Feature"
 >
     <testsuites>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+        </testsuite>
+        <!-- Live-DB spatial subset run by the path-filtered spatial CI job
+             (.github/workflows/run-tests.yml, "spatial" job) against MySQL
+             and PostgreSQL/PostGIS service containers — everything here
+             already skips gracefully in the main "Feature" suite when no
+             live container is reachable, so this is purely a narrower,
+             faster re-run scope, not a behavior change. -->
+        <testsuite name="Spatial">
+            <directory>tests/Feature/Geocoding</directory>
+            <directory>tests/Feature/Support/Spatial</directory>
+            <file>tests/Feature/Support/SpatialColumnTest.php</file>
+            <file>tests/Feature/Exceptions/SpatialWkbExceptionTest.php</file>
+            <file>tests/Feature/Console/DownloadBoundariesCommandSpatialBulkWriteTest.php</file>
         </testsuite>
     </testsuites>
     <source>

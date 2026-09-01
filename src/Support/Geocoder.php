@@ -2,7 +2,9 @@
 
 namespace MadeByClowd\Nusantara\Support;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class Geocoder
@@ -29,7 +31,7 @@ class Geocoder
      * @return Model|null
      *
      * @throws \InvalidArgumentException if `$level` is not a valid region level.
-     * @throws \RuntimeException if `boundary` is not enabled at a required level, or is stored as a native spatial column (not yet supported by this method — see class docs).
+     * @throws \RuntimeException if `boundary` is not enabled at a required level, or is stored as a native spatial column on a driver without DB-side pushdown yet (SpatiaLite — MySQL, PostgreSQL/PostGIS, and SQL Server use real spatial containment, see `findContainingRegionSpatial()`).
      */
     public function findByCoordinate(float $lat, float $lng, string $level = 'village')
     {
@@ -73,7 +75,7 @@ class Geocoder
             );
         }
 
-        $isSpatialColumn = $this->isSpatialColumn($connectionName, $tableName, $boundaryColumn);
+        $isSpatialColumn = SpatialColumn::isSpatial($connectionName, $tableName, $boundaryColumn);
 
         $query = $modelClass::query()->whereNotNull($boundaryColumn);
 
@@ -82,8 +84,12 @@ class Geocoder
             $query->where($parentKeyColumn, $parent->getKey());
         }
 
+        if ($isSpatialColumn) {
+            return $this->findContainingRegionSpatial($query, $connectionName, $boundaryColumn, $lat, $lng, $level);
+        }
+
         foreach ($query->get() as $candidate) {
-            $coordinates = $this->extractBoundaryCoordinates($candidate, $boundaryColumn, $isSpatialColumn, $level);
+            $coordinates = $this->extractBoundaryCoordinates($candidate, $boundaryColumn);
 
             if ($coordinates !== null && CoordinateGeometry::isPointInBoundary($lat, $lng, $coordinates)) {
                 return $candidate;
@@ -94,18 +100,47 @@ class Geocoder
     }
 
     /**
-     * @return array<int, mixed>|null
+     * DB-side point-in-polygon containment for native spatial boundary columns
+     * (decision 5b — pushdown, not decode-then-ray-cast, so the DB's spatial
+     * index actually gets used). Point order is `(lng, lat)` here, matching
+     * the write path's WKT/`ST_GeomFromText` convention — NOT this package's
+     * `[lat, lng]` JSON storage convention used by the text-mode path above.
+     *
+     * @param  Builder<Model>  $query
+     *
+     * @throws \RuntimeException if the connection's driver has no pushdown implementation yet (SpatiaLite).
      */
-    protected function extractBoundaryCoordinates(Model $candidate, string $boundaryColumn, bool $isSpatialColumn, string $level): ?array
+    protected function findContainingRegionSpatial($query, string $connectionName, string $boundaryColumn, float $lat, float $lng, string $level): ?Model
     {
-        if ($isSpatialColumn) {
+        $driver = DB::connection($connectionName)->getDriverName();
+
+        // SRID must match the write path's convention per driver (DownloadBoundariesCommand::getSpatialExpressionPlaceholder())
+        // — MySQL writes SRID 0, PostgreSQL/PostGIS and SQL Server write SRID 4326. A mismatch here doesn't throw,
+        // it just silently returns zero matches.
+        $containsSql = match ($driver) {
+            'mysql' => "ST_Contains({$boundaryColumn}, ST_SRID(POINT(?, ?), 0))",
+            'pgsql' => "ST_Contains({$boundaryColumn}, ST_SetSRID(ST_MakePoint(?, ?), 4326))",
+            // Method-on-column syntax, not function-wrapping-column — SQL Server has no ST_Contains() function.
+            'sqlsrv' => "{$boundaryColumn}.STContains(geometry::Point(?, ?, 4326)) = 1",
+            default => null,
+        };
+
+        if ($containsSql === null) {
             throw new \RuntimeException(
-                "findByCoordinate() does not yet support native spatial boundary columns (level '{$level}''s ".
-                "'{$boundaryColumn}' column is stored as a spatial type, e.g. via config('nusantara.boundaries.type', 'spatial')). ".
-                "Use text-mode boundary storage (config('nusantara.boundaries.type', 'text')) for coordinate-based lookups."
+                "findByCoordinate() does not yet support native spatial boundary columns on the '{$driver}' driver ".
+                "(level '{$level}''s '{$boundaryColumn}' column is stored as a spatial type, e.g. via config('nusantara.boundaries.type', 'spatial')). ".
+                'DB-side containment pushdown is currently only implemented for MySQL, PostgreSQL/PostGIS, and SQL Server.'
             );
         }
 
+        return $query->whereRaw($containsSql, [$lng, $lat])->first();
+    }
+
+    /**
+     * @return array<int, mixed>|null
+     */
+    protected function extractBoundaryCoordinates(Model $candidate, string $boundaryColumn): ?array
+    {
         $raw = $candidate->getRawOriginal($boundaryColumn);
 
         if ($raw === null) {
@@ -115,13 +150,6 @@ class Geocoder
         $decoded = json_decode($raw, true);
 
         return is_array($decoded) ? $decoded : null;
-    }
-
-    protected function isSpatialColumn(?string $connection, string $table, string $column): bool
-    {
-        $type = strtolower(Schema::connection($connection)->getColumnType($table, $column));
-
-        return str_contains($type, 'geometry') || str_contains($type, 'geography');
     }
 
     /**
