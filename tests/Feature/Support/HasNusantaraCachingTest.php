@@ -91,6 +91,13 @@ class HasNusantaraCachingTest extends TestCase
         config(['cache.default' => 'file']);
         config(['nusantara.cache.enabled' => true]);
 
+        // The 'file' store persists to disk across separate `phpunit`
+        // process invocations (unlike the suite's default 'array' driver,
+        // which resets per-process) — without this, a leftover value from
+        // an earlier run within the same TTL window makes $calls stay 0
+        // below, a false pass/fail depending on random execution order.
+        Cache::forget(config('nusantara.cache.prefix', 'nusantara').'.locked-probe-key');
+
         $probe = new RememberLockedProbe;
         $calls = 0;
         $callback = function () use (&$calls) {

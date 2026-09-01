@@ -269,7 +269,11 @@ Nusantara::isValidPostalCode('23773'); // bool, format check only
 // throw until their pushdown lands.
 $village = Nusantara::findByCoordinate(lat: 2.931, lng: 97.484, level: 'village');
 
-// 15. Export any region as a GeoJSON Feature
+// 15. Export any region as a GeoJSON Feature. Under 'spatial' storage,
+// MySQL and PostgreSQL/PostGIS decode the real boundary geometry (via the
+// optional brick/geo package) into a Polygon/MultiPolygon Feature, cached
+// per row; SQL Server/SpatiaLite still throw until their decode lands.
+// Under 'text' storage this always works, no brick/geo needed.
 $geojson = $village->toGeoJson();
 ```
 

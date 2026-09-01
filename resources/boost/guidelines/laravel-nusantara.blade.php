@@ -22,18 +22,34 @@ through `HasDynamicNusantaraFields` rather than hardcoded.
 - `php artisan nusantara:download-boundaries` — required before using `boundary` columns or reverse
   geocoding (`findByCoordinate()`).
 
+### Spatial storage (`config('nusantara.boundaries.type', 'spatial')`)
+
+Both `toGeoJson()` and `findByCoordinate()` work against real spatial geometry on **MySQL and
+PostgreSQL/PostGIS** — decode/containment happen server-side (`ST_AsBinary()` + `brick/geo`,
+`ST_Contains()` respectively), not by pulling every candidate row into PHP. **SQL Server and
+SpatiaLite are not covered yet** — both methods throw `\RuntimeException` for those two drivers on a
+spatial column, not because spatial storage itself is unsupported there, just because this package's
+decode/pushdown hasn't been verified against those environments.
+
+If a boundary looks stale after `nusantara:download-boundaries --force`: `toGeoJson()`'s decoded
+result is cached per row, keyed by a hash of the raw boundary value, so it invalidates automatically
+when the column changes — check `HasNusantaraCaching`'s cache store/prefix config first, not just the
+DB column, before assuming the downloader itself is broken.
+
 ### Pitfalls
 
 - `search()` does not fall back to fuzzy matching automatically — call `searchFuzzy()` explicitly.
 - `parseNik()`/`isValidNik()` validate NIK structure only; embedded region codes are resolved lazily
   and separately via `$info->district()`/`regency()`/`province()`.
 - `findByCoordinate()` requires the `boundary` column enabled at every level down to (and including)
-  the target `$level`, not just the target level — otherwise it throws `\RuntimeException`.
+  the target `$level`, not just the target level — otherwise it throws `\RuntimeException`. On a
+  spatial column it also throws `\RuntimeException` for SQL Server/SpatiaLite (see "Spatial storage"
+  above) — MySQL/PostgreSQL use real DB-side pushdown.
 - `resolvePostalCode()`/`isValidPostalCode()` require `nusantara.columns.villages.postal_code.enabled`.
-- `toGeoJson()` decodes native spatial `boundary` columns (`config('nusantara.boundaries.type', 'spatial')`)
-  via the optional `brick/geo` package, verified on MySQL and PostgreSQL/PostGIS only — SQL Server/
-  SpatiaLite and a missing `brick/geo` both throw `\RuntimeException`; corrupt WKB throws
-  `MalformedWkbException` instead of returning wrong data.
+- `toGeoJson()` decodes native spatial `boundary` columns via the optional `brick/geo` package,
+  verified on MySQL and PostgreSQL/PostGIS only — SQL Server/SpatiaLite and a missing `brick/geo`
+  both throw `\RuntimeException`; corrupt WKB throws `MalformedWkbException` instead of returning
+  wrong data. See "Spatial storage" above for the caching note.
 
 See the `laravel-nusantara` Agent Skill (installed alongside this guideline) for the full facade/API
 reference, config customization examples, and verification checklist.

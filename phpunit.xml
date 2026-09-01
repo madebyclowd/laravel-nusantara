@@ -9,6 +9,7 @@
          failOnEmptyTestSuite="true"
          beStrictAboutOutputDuringTests="true"
          cacheDirectory=".phpunit.cache"
+         defaultTestSuite="Feature"
 >
     <testsuites>
         <testsuite name="Feature">

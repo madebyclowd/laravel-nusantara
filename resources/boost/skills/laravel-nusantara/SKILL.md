@@ -161,6 +161,8 @@ $village = Nusantara::findByCoordinate(-6.9147, 107.6098, 'village'); // level: 
 ```
 Throws `\InvalidArgumentException` for an invalid `$level`, `\RuntimeException` if a required level's `boundary` column isn't enabled.
 
+Under `config('nusantara.boundaries.type', 'spatial')`, MySQL and PostgreSQL/PostGIS run a real DB-side `ST_Contains()` containment query (spatial index gets used, no row-by-row PHP ray-casting) — SQL Server and SpatiaLite spatial columns still throw `\RuntimeException` until their pushdown is verified. `text`-mode storage always works, on every driver, via the existing PHP ray-cast.
+
 ### GeoJSON Export
 
 Every model (`Province`, `Regency`, `District`, `Village`) has `toGeoJson()` via the `HasGeoBoundary` trait:
@@ -171,7 +173,7 @@ $geojson = $province->toGeoJson();
 // decodes real WKB via brick/geo on MySQL and PostgreSQL/PostGIS. Falls back to a Point
 // Feature from lat/lng when boundary is disabled or null.
 ```
-Decoding a native spatial `boundary` column requires the optional `brick/geo` package (`composer require brick/geo`) and is only verified on MySQL/PostgreSQL — SQL Server/SpatiaLite throw `\RuntimeException` for now. A corrupt/truncated spatial value throws `MadeByClowd\Nusantara\Exceptions\MalformedWkbException` instead of returning wrong data. Decoded spatial geometry is cached per row (invalidates automatically when the underlying boundary value changes, e.g. after `nusantara:download-boundaries --force`).
+Decoding a native spatial `boundary` column requires the optional `brick/geo` package (`composer require brick/geo`) and is only verified on MySQL/PostgreSQL — SQL Server/SpatiaLite throw `\RuntimeException` for now. A corrupt/truncated spatial value throws `MadeByClowd\Nusantara\Exceptions\MalformedWkbException` instead of returning wrong data. Decoded spatial geometry is cached per row, keyed by a hash of the raw boundary value — invalidates automatically when the column changes (e.g. after `nusantara:download-boundaries --force`), so a stale-looking result after a re-download usually means check the cache store/prefix config, not the DB column.
 
 ### Writing Custom Queries
 
@@ -214,4 +216,6 @@ $results = DB::table($tableName)
 - Assuming `parseNik()`/`isValidNik()` verify that embedded region codes correspond to real regions — validation is structural only. Region resolution is separate via `$info->district()`/`regency()`/`province()`.
 - Passing an invalid `scope` to `search()`/`searchFuzzy()` — must be one of `provinces`, `regencies`, `districts`, `villages`, or `null`.
 - Calling `findByCoordinate()` at `village` level while only `province`/`village` boundaries are enabled — every intermediate level's `boundary` column must also be enabled, or it throws `\RuntimeException`.
+- Calling `findByCoordinate()` against a spatial `boundary` column on SQL Server/SpatiaLite — throws `\RuntimeException`; DB-side containment pushdown is currently only verified for MySQL and PostgreSQL/PostGIS.
 - Calling `toGeoJson()` on a native spatial `boundary` column without `brick/geo` installed, or on SQL Server/SpatiaLite — both throw `\RuntimeException`; decoding is currently only verified for MySQL and PostgreSQL/PostGIS.
+- Assuming a stale `toGeoJson()` result after `nusantara:download-boundaries --force` means the downloader failed — decoded spatial geometry is cached per row; check cache invalidation first.
