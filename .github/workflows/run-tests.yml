@@ -143,3 +143,133 @@ jobs:
           files: ./coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  spatial-changes:
+    runs-on: ubuntu-latest
+    name: Detect spatial-relevant changes
+    outputs:
+      spatial: ${{ steps.filter.outputs.spatial }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Filter paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            spatial:
+              - 'src/Support/Spatial/**'
+              - 'src/Support/SpatialColumn.php'
+              - 'src/Support/Geocoder.php'
+              - 'src/Models/Concerns/HasGeoBoundary.php'
+              - 'src/Console/DownloadBoundariesCommand.php'
+              - 'src/Exceptions/SpatialWkbException.php'
+              - 'src/Exceptions/MalformedWkbException.php'
+              - 'tests/**/Spatial/**'
+              - 'tests/**/Geocoding/**'
+              - 'tests/fixtures/wkb/**'
+              - 'composer.json'
+              - 'composer.lock'
+              - 'scripts/export-wkb-fixtures.php'
+              - '.github/workflows/run-tests.yml'
+
+  # Path-filtered spatial integration job — separate from the `test` matrix
+  # above (decision 6: keeps the existing SQLite-only 7-way compat matrix
+  # completely unchanged) and pinned to one PHP/Laravel combo (the cell that
+  # already runs coverage) rather than re-running across the whole matrix.
+  #
+  # Tiered support, not equal parity: MySQL and PostgreSQL/PostGIS are
+  # hard-required here. SQL Server and SpatiaLite are NOT included yet —
+  # this dev environment has no way to verify either driver's spatial
+  # branches against reality, so they stay deferred (Geocoder and
+  # HasGeoBoundary both still throw \RuntimeException for those two drivers)
+  # rather than being added to this job unverified. Revisit once those
+  # environments exist — see ai-docs/02_planning/laravel-nusantara-plan-spatial-decode.md.
+  spatial:
+    needs: [lint, spatial-changes]
+    if: needs.spatial-changes.outputs.spatial == 'true'
+    runs-on: ubuntu-latest
+    name: Spatial Integration (MySQL + PostgreSQL/PostGIS — SQL Server/SpatiaLite not yet covered)
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: testdb
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpassword
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -utestuser -ptestpassword"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+          extensions: dom, curl, libxml, mbstring, zip, pdo, pdo_mysql, pdo_pgsql, sqlite, pdo_sqlite, bcmath, gd, exif, iconv
+          coverage: none
+
+      - name: Setup Problem Matchers
+        run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Cache Composer Dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-spatial-${{ hashFiles('**/composer.json') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-spatial-
+
+      - name: Install dependencies
+        env:
+          COMPOSER_POLICY_ADVISORIES_BLOCK: 0
+        run: |
+          composer require "laravel/framework:12.*" "orchestra/testbench:10.*" --no-interaction --no-update
+          composer update --prefer-stable --prefer-dist --no-interaction
+
+      - name: Check committed WKB fixtures for drift
+        run: |
+          php scripts/export-wkb-fixtures.php
+          git diff --exit-code -- tests/fixtures/wkb || {
+            echo "::error::Committed WKB fixtures in tests/fixtures/wkb/ no longer match live MySQL/PostgreSQL ST_AsBinary() output — a DB version likely changed its serialization format. Re-run 'php scripts/export-wkb-fixtures.php' locally and commit the result after confirming the change is expected."
+            exit 1
+          }
+
+      - name: Run spatial test suite
+        run: vendor/bin/phpunit --testsuite=Spatial
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "### Spatial integration coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Driver | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| MySQL | hard-required |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| PostgreSQL/PostGIS | hard-required |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SQL Server | not yet covered — no environment to verify against |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| SpatiaLite | not yet covered — no environment to verify against |" >> "$GITHUB_STEP_SUMMARY"
