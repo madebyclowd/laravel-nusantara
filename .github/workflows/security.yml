@@ -33,4 +33,4 @@ jobs:
         run: composer audit --format=table
 
       - name: Check dependency licenses
-        run: composer licenses --format=table
+        run: composer licenses --format=text
