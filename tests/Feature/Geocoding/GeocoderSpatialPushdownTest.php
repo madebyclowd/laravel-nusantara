@@ -10,14 +10,15 @@ use MadeByClowd\Nusantara\Support\Geocoder;
 use MadeByClowd\Nusantara\Tests\TestCase;
 
 /**
- * Integration tests for the Phase 05 DB-side spatial pushdown
- * (Geocoder::findContainingRegionSpatial()) against real MySQL and
- * PostgreSQL/PostGIS instances — connects to the local docker containers
- * this dev environment already runs (mysql-container / postgres-container).
- * Skips gracefully wherever those containers aren't reachable (e.g. CI,
- * until Phase 06 adds proper service containers), matching this plan's
- * "verify against reality, don't guess" discipline without hard-failing
- * unrelated environments.
+ * Integration tests for the Phase 05/09 DB-side spatial pushdown
+ * (Geocoder::findContainingRegionSpatial()) against real MySQL,
+ * PostgreSQL/PostGIS, and SQL Server instances — connects to the local
+ * docker containers this dev environment already runs (mysql-container /
+ * postgres-container / compose.spatial.yaml's mssql service). Skips
+ * gracefully wherever those containers aren't reachable (e.g. CI, until
+ * Phase 06 adds proper service containers), matching this plan's "verify
+ * against reality, don't guess" discipline without hard-failing unrelated
+ * environments.
  */
 class GeocoderSpatialPushdownTest extends TestCase
 {
@@ -126,6 +127,98 @@ class GeocoderSpatialPushdownTest extends TestCase
 
             DB::connection($connection)->insert(
                 'INSERT INTO regencies (id, province_id, boundary) VALUES (?, ?, ST_GeomFromText(?))',
+                ['R_correct', 'PP', self::POLYGON_AA]
+            );
+
+            $regency = (new Geocoder)->findByCoordinate(0.5, 105, 'regency');
+            $this->assertNotNull($regency);
+            $this->assertSame('R_correct', $regency->id);
+        } finally {
+            Schema::connection($connection)->dropIfExists('regencies');
+            Schema::connection($connection)->dropIfExists('provinces');
+        }
+    }
+
+    /** @test */
+    public function test_sqlsrv_stcontains_pushdown_respects_axis_order()
+    {
+        $this->connectOrSkip('nusantara_spatial_sqlsrv', [
+            'driver' => 'sqlsrv',
+            'host' => '127.0.0.1',
+            'port' => 1433,
+            'database' => 'testdb',
+            'username' => 'sa',
+            'password' => 'TestPassword123!',
+            'trust_server_certificate' => true,
+        ]);
+
+        config(['nusantara.connection' => 'nusantara_spatial_sqlsrv']);
+
+        Schema::connection('nusantara_spatial_sqlsrv')->dropIfExists('provinces');
+        Schema::connection('nusantara_spatial_sqlsrv')->create('provinces', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->geometry('boundary')->nullable();
+        });
+
+        try {
+            DB::connection('nusantara_spatial_sqlsrv')->insert(
+                'INSERT INTO provinces (id, boundary) VALUES (?, geometry::STGeomFromText(?, 4326)), (?, geometry::STGeomFromText(?, 4326))',
+                ['AA', self::POLYGON_AA, 'BB', self::POLYGON_BB]
+            );
+
+            $province = (new Geocoder)->findByCoordinate(0.5, 105, 'province');
+
+            $this->assertNotNull($province);
+            $this->assertSame('AA', $province->id);
+        } finally {
+            Schema::connection('nusantara_spatial_sqlsrv')->dropIfExists('provinces');
+        }
+    }
+
+    /** @test */
+    public function test_sqlsrv_spatial_pushdown_respects_parent_scoping()
+    {
+        $this->connectOrSkip('nusantara_spatial_sqlsrv', [
+            'driver' => 'sqlsrv',
+            'host' => '127.0.0.1',
+            'port' => 1433,
+            'database' => 'testdb',
+            'username' => 'sa',
+            'password' => 'TestPassword123!',
+            'trust_server_certificate' => true,
+        ]);
+
+        config(['nusantara.connection' => 'nusantara_spatial_sqlsrv']);
+
+        $connection = 'nusantara_spatial_sqlsrv';
+        Schema::connection($connection)->dropIfExists('regencies');
+        Schema::connection($connection)->dropIfExists('provinces');
+        Schema::connection($connection)->create('provinces', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->geometry('boundary')->nullable();
+        });
+        Schema::connection($connection)->create('regencies', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->string('province_id');
+            $table->geometry('boundary')->nullable();
+        });
+
+        try {
+            DB::connection($connection)->insert(
+                'INSERT INTO provinces (id, boundary) VALUES (?, geometry::STGeomFromText(?, 4326))',
+                ['PP', self::POLYGON_AA]
+            );
+
+            DB::connection($connection)->insert(
+                'INSERT INTO regencies (id, province_id, boundary) VALUES (?, ?, geometry::STGeomFromText(?, 4326))',
+                ['R_impostor', 'QQ', self::POLYGON_AA]
+            );
+
+            $regency = (new Geocoder)->findByCoordinate(0.5, 105, 'regency');
+            $this->assertNull($regency, 'Parent-scoped narrowing must exclude a spatially-matching row belonging to a different parent.');
+
+            DB::connection($connection)->insert(
+                'INSERT INTO regencies (id, province_id, boundary) VALUES (?, ?, geometry::STGeomFromText(?, 4326))',
                 ['R_correct', 'PP', self::POLYGON_AA]
             );
 

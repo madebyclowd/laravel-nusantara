@@ -10,12 +10,13 @@ use MadeByClowd\Nusantara\Models\Province;
 use MadeByClowd\Nusantara\Tests\TestCase;
 
 /**
- * Phase 04 integration tests for HasGeoBoundary::toGeoJson() against real
- * native spatial boundary columns — connects to the local MySQL/PostgreSQL
- * containers this dev environment already runs (mysql-container /
- * postgres-container, same credentials as GeocoderSpatialPushdownTest).
- * Skips gracefully wherever those containers aren't reachable, matching
- * this plan's "verify against reality, don't guess" discipline.
+ * Phase 04/09 integration tests for HasGeoBoundary::toGeoJson() against real
+ * native spatial boundary columns — connects to the local MySQL/PostgreSQL/
+ * SQL Server containers this dev environment already runs (mysql-container /
+ * postgres-container / compose.spatial.yaml's mssql service, same
+ * credentials as GeocoderSpatialPushdownTest). Skips gracefully wherever
+ * those containers aren't reachable, matching this plan's "verify against
+ * reality, don't guess" discipline.
  *
  * This is the closing test for audit-002: SITARUNG's exact reproduction
  * case (District::find(...)->toGeoJson() under spatial storage) must
@@ -122,6 +123,70 @@ class HasGeoBoundarySpatialTest extends TestCase
             $this->assertSame(self::SQUARE_POLYGON_GEOJSON[0], $geojson['geometry']['coordinates'][0][0]);
         } finally {
             Schema::connection('nusantara_spatial_pgsql')->dropIfExists('provinces');
+        }
+    }
+
+    /** @test */
+    public function test_it_decodes_a_real_polygon_boundary_via_sqlsrv()
+    {
+        $this->connectOrSkip('nusantara_spatial_sqlsrv', [
+            'driver' => 'sqlsrv',
+            'host' => '127.0.0.1',
+            'port' => 1433,
+            'database' => 'testdb',
+            'username' => 'sa',
+            'password' => 'TestPassword123!',
+            'trust_server_certificate' => true,
+        ]);
+
+        config(['nusantara.connection' => 'nusantara_spatial_sqlsrv']);
+        $this->createProvincesTable('nusantara_spatial_sqlsrv', 'sqlsrv');
+
+        try {
+            DB::connection('nusantara_spatial_sqlsrv')->insert(
+                'INSERT INTO provinces (id, name, boundary) VALUES (?, ?, geometry::STGeomFromText(?, 4326))',
+                ['AA', 'Aceh', self::SQUARE_POLYGON_WKT]
+            );
+
+            $geojson = Province::find('AA')->toGeoJson();
+
+            $this->assertSame('Feature', $geojson['type']);
+            $this->assertSame('Polygon', $geojson['geometry']['type']);
+            $this->assertSame(self::SQUARE_POLYGON_GEOJSON, $geojson['geometry']['coordinates']);
+            $this->assertSame('Aceh', $geojson['properties']['name']);
+        } finally {
+            Schema::connection('nusantara_spatial_sqlsrv')->dropIfExists('provinces');
+        }
+    }
+
+    /** @test */
+    public function test_it_decodes_a_real_multipolygon_boundary_via_sqlsrv()
+    {
+        $this->connectOrSkip('nusantara_spatial_sqlsrv', [
+            'driver' => 'sqlsrv',
+            'host' => '127.0.0.1',
+            'port' => 1433,
+            'database' => 'testdb',
+            'username' => 'sa',
+            'password' => 'TestPassword123!',
+            'trust_server_certificate' => true,
+        ]);
+
+        config(['nusantara.connection' => 'nusantara_spatial_sqlsrv']);
+        $this->createProvincesTable('nusantara_spatial_sqlsrv', 'sqlsrv');
+
+        try {
+            DB::connection('nusantara_spatial_sqlsrv')->insert(
+                'INSERT INTO provinces (id, name, boundary) VALUES (?, ?, geometry::STGeomFromText(?, 4326))',
+                ['AA', 'Aceh', self::TWO_PART_MULTIPOLYGON_WKT]
+            );
+
+            $geojson = Province::find('AA')->toGeoJson();
+
+            $this->assertSame('MultiPolygon', $geojson['geometry']['type']);
+            $this->assertSame(self::SQUARE_POLYGON_GEOJSON[0], $geojson['geometry']['coordinates'][0][0]);
+        } finally {
+            Schema::connection('nusantara_spatial_sqlsrv')->dropIfExists('provinces');
         }
     }
 

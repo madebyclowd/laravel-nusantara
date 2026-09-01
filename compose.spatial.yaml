@@ -8,9 +8,10 @@
 #   vendor/bin/phpunit --testsuite=Spatial
 #   docker compose -f compose.spatial.yaml down -v
 #
-# SQL Server and SpatiaLite are intentionally not included here — this
-# package's spatial decode/pushdown is only verified against MySQL and
-# PostgreSQL/PostGIS so far (see ai-docs/02_planning/laravel-nusantara-plan-spatial-decode.md).
+# SpatiaLite isn't included here — it's a loadable SQLite extension, not a
+# service container, and needs a PHP build with PDO_SQLite extension-loading
+# support this environment doesn't have (see
+# ai-docs/02_planning/laravel-nusantara-plan-spatial-decode.md).
 
 services:
   mysql:
@@ -41,3 +42,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: 'TestPassword123!'
+      MSSQL_PID: Developer
+    ports:
+      - '1433:1433'
+    healthcheck:
+      test: ['CMD-SHELL', '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "TestPassword123!" -C -Q "SELECT 1" || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s

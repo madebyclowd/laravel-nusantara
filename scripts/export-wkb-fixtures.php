@@ -1,26 +1,30 @@
 <?php
 
 /**
- * Regenerates tests/fixtures/wkb/{mysql,pgsql}/*.wkb — real raw WKB bytes
- * read back through the exact retrieval SQL BoundaryWkbQuery::selectExpression()
- * builds, after writing known boundaries through the same WKT-insert
- * convention DownloadBoundariesCommand::getSpatialExpressionPlaceholder()
- * uses (ST_GeomFromText(?) for MySQL/SRID 0, ST_GeomFromText(?, 4326) for
- * PostgreSQL), so fixtures reflect exactly what this package's own
- * downloader produces — not a synthetic shortcut.
+ * Regenerates tests/fixtures/wkb/{mysql,pgsql,sqlsrv}/*.wkb — real raw WKB
+ * bytes read back through the exact retrieval SQL
+ * BoundaryWkbQuery::selectExpression() builds, after writing known
+ * boundaries through the same WKT-insert convention
+ * DownloadBoundariesCommand::getSpatialExpressionPlaceholder() uses
+ * (ST_GeomFromText(?) for MySQL/SRID 0, ST_GeomFromText(?, 4326) for
+ * PostgreSQL, geometry::STGeomFromText(?, 4326) for SQL Server), so
+ * fixtures reflect exactly what this package's own downloader produces —
+ * not a synthetic shortcut.
  *
  * Idempotent and re-runnable — Phase 06's CI job runs this to catch silent
  * ST_AsBinary()-family format drift across driver versions, not just to
  * generate fixtures once (see laravel-nusantara-impl-spatial-03's
  * acceptance criteria).
  *
- * Requires the live MySQL + PostgreSQL/PostGIS containers this dev
- * environment already runs (mysql-container / postgres-container — same
- * credentials as tests/Feature/Geocoding/GeocoderSpatialPushdownTest).
- * A driver that isn't reachable is skipped, not fatal, matching this plan's
- * "verify against reality, don't guess" discipline without hard-failing
- * unrelated environments. SQL Server / SpatiaLite are not attempted here —
- * no live environment exists in this repo to verify against yet.
+ * Requires the live MySQL + PostgreSQL/PostGIS + SQL Server containers this
+ * dev environment already runs (mysql-container / postgres-container /
+ * compose.spatial.yaml's mssql service — same credentials as
+ * tests/Feature/Geocoding/GeocoderSpatialPushdownTest). A driver that isn't
+ * reachable is skipped, not fatal, matching this plan's "verify against
+ * reality, don't guess" discipline without hard-failing unrelated
+ * environments. SpatiaLite is not attempted here — no environment exists in
+ * this repo to verify against (PDO_SQLite here has no loadable-extension
+ * support either).
  *
  * Usage: php scripts/export-wkb-fixtures.php
  */
@@ -55,6 +59,13 @@ $drivers = [
         'pass' => 'postgres',
         'createTable' => 'CREATE TABLE wkb_fixture_export (id VARCHAR(64) PRIMARY KEY, boundary GEOMETRY(GEOMETRY, 4326) NOT NULL)',
         'insertExpr' => 'ST_GeomFromText(?, 4326)', // matches DownloadBoundariesCommand's pgsql branch
+    ],
+    'sqlsrv' => [
+        'dsn' => 'sqlsrv:Server=127.0.0.1,1433;Database=testdb;TrustServerCertificate=true',
+        'user' => 'sa',
+        'pass' => 'TestPassword123!',
+        'createTable' => 'CREATE TABLE wkb_fixture_export (id VARCHAR(64) PRIMARY KEY, boundary geometry NOT NULL)',
+        'insertExpr' => 'geometry::STGeomFromText(?, 4326)', // matches DownloadBoundariesCommand's sqlsrv branch
     ],
 ];
 

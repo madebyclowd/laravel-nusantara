@@ -23,7 +23,7 @@ trait HasGeoBoundary
      *
      * @return array<string, mixed>
      *
-     * @throws \RuntimeException if `boundary` is populated but stored as a native spatial column on a driver without verified WKB retrieval yet (SQL Server, SpatiaLite — see BoundaryWkbQuery::VERIFIED_DRIVERS; MySQL and PostgreSQL/PostGIS decode via brick/geo).
+     * @throws \RuntimeException if `boundary` is populated but stored as a native spatial column on a driver without verified WKB retrieval yet (SpatiaLite — see BoundaryWkbQuery::VERIFIED_DRIVERS; MySQL, PostgreSQL/PostGIS, and SQL Server decode via brick/geo).
      * @throws MalformedWkbException if a native spatial `boundary` column holds corrupt/unsupported WKB.
      */
     public function toGeoJson(): array
@@ -143,7 +143,7 @@ trait HasGeoBoundary
             throw new \RuntimeException(
                 "toGeoJson() does not yet support native spatial boundary columns on the '{$driver}' driver ".
                 "('{$boundaryColumn}' on '{$this->getTable()}' is stored as a spatial type, e.g. via config('nusantara.boundaries.type', 'spatial')). ".
-                'WKB retrieval is currently only verified for MySQL and PostgreSQL/PostGIS (see BoundaryWkbQuery::VERIFIED_DRIVERS).'
+                'WKB retrieval is currently only verified for MySQL, PostgreSQL/PostGIS, and SQL Server (see BoundaryWkbQuery::VERIFIED_DRIVERS).'
             );
         }
 

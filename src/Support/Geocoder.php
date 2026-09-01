@@ -31,7 +31,7 @@ class Geocoder
      * @return Model|null
      *
      * @throws \InvalidArgumentException if `$level` is not a valid region level.
-     * @throws \RuntimeException if `boundary` is not enabled at a required level, or is stored as a native spatial column on a driver without DB-side pushdown yet (SQL Server, SpatiaLite — MySQL and PostgreSQL/PostGIS use real spatial containment, see `findContainingRegionSpatial()`).
+     * @throws \RuntimeException if `boundary` is not enabled at a required level, or is stored as a native spatial column on a driver without DB-side pushdown yet (SpatiaLite — MySQL, PostgreSQL/PostGIS, and SQL Server use real spatial containment, see `findContainingRegionSpatial()`).
      */
     public function findByCoordinate(float $lat, float $lng, string $level = 'village')
     {
@@ -108,18 +108,20 @@ class Geocoder
      *
      * @param  Builder<Model>  $query
      *
-     * @throws \RuntimeException if the connection's driver has no pushdown implementation yet (SQL Server, SpatiaLite).
+     * @throws \RuntimeException if the connection's driver has no pushdown implementation yet (SpatiaLite).
      */
     protected function findContainingRegionSpatial($query, string $connectionName, string $boundaryColumn, float $lat, float $lng, string $level): ?Model
     {
         $driver = DB::connection($connectionName)->getDriverName();
 
         // SRID must match the write path's convention per driver (DownloadBoundariesCommand::getSpatialExpressionPlaceholder())
-        // — MySQL writes SRID 0, PostgreSQL/PostGIS writes SRID 4326. A mismatch here doesn't throw, it just
-        // silently returns zero matches.
+        // — MySQL writes SRID 0, PostgreSQL/PostGIS and SQL Server write SRID 4326. A mismatch here doesn't throw,
+        // it just silently returns zero matches.
         $containsSql = match ($driver) {
             'mysql' => "ST_Contains({$boundaryColumn}, ST_SRID(POINT(?, ?), 0))",
             'pgsql' => "ST_Contains({$boundaryColumn}, ST_SetSRID(ST_MakePoint(?, ?), 4326))",
+            // Method-on-column syntax, not function-wrapping-column — SQL Server has no ST_Contains() function.
+            'sqlsrv' => "{$boundaryColumn}.STContains(geometry::Point(?, ?, 4326)) = 1",
             default => null,
         };
 
@@ -127,7 +129,7 @@ class Geocoder
             throw new \RuntimeException(
                 "findByCoordinate() does not yet support native spatial boundary columns on the '{$driver}' driver ".
                 "(level '{$level}''s '{$boundaryColumn}' column is stored as a spatial type, e.g. via config('nusantara.boundaries.type', 'spatial')). ".
-                'DB-side containment pushdown is currently only implemented for MySQL and PostgreSQL/PostGIS.'
+                'DB-side containment pushdown is currently only implemented for MySQL, PostgreSQL/PostGIS, and SQL Server.'
             );
         }
 

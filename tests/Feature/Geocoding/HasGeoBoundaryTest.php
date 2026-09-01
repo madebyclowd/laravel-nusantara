@@ -101,9 +101,10 @@ class HasGeoBoundaryTest extends TestCase
     /**
      * The default test connection is sqlite — SpatiaLite's WKB retrieval
      * syntax isn't live-verified yet (BoundaryWkbQuery::VERIFIED_DRIVERS is
-     * MySQL/PostgreSQL only), so this still throws, same as before Phase 04.
-     * What's no longer true (see the live-DB tests in this class) is that
-     * *every* spatial driver throws — MySQL/PostgreSQL now decode real WKB.
+     * MySQL/PostgreSQL/SQL Server only), so this still throws, same as
+     * before Phase 04. What's no longer true (see the live-DB tests in this
+     * class) is that *every* spatial driver throws — MySQL, PostgreSQL, and
+     * SQL Server now decode real WKB.
      *
      * @test
      */

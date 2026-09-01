@@ -26,7 +26,12 @@ use MadeByClowd\Nusantara\Tests\TestCase;
  * `addBoundaryColumn()`'s own comment in
  * `2026_06_05_000000_create_nusantara_tables.php`: MySQL requires
  * spatial-indexed columns to be `NOT NULL`, and `boundary` is nullable, so
- * this package only adds a spatial index on PostgreSQL. The `EXPLAIN`
+ * this package only adds a spatial index on PostgreSQL. SQL Server's
+ * `boundary` column is also left unindexed — its spatial index needs an
+ * explicit `BOUNDING_BOX` parameter Laravel's `Blueprint::spatialIndex()`
+ * doesn't emit for the `sqlsrv` grammar, and adding raw-SQL index creation
+ * is out of scope for this phase (verified empirically, not assumed — see
+ * `laravel-nusantara-impl-spatial-09-sqlsrv-support`). The `EXPLAIN`
  * index-usage assertion below therefore only runs against PostgreSQL —
  * "where one exists" per this phase's own acceptance wording.
  */
@@ -79,7 +84,11 @@ class GeocoderSpatialRegressionGuardTest extends TestCase
             }
         });
 
-        $insertExpr = $driver === 'pgsql' ? 'ST_GeomFromText(?, 4326)' : 'ST_GeomFromText(?)';
+        $insertExpr = match ($driver) {
+            'pgsql' => 'ST_GeomFromText(?, 4326)',
+            'sqlsrv' => 'geometry::STGeomFromText(?, 4326)',
+            default => 'ST_GeomFromText(?)',
+        };
         $pdo = DB::connection($connection)->getPdo();
 
         $targetColumn = (int) (self::GRID_COLUMNS / 2);
@@ -252,6 +261,46 @@ class GeocoderSpatialRegressionGuardTest extends TestCase
             );
         } finally {
             Schema::connection('nusantara_perf_mysql')->dropIfExists('provinces');
+        }
+    }
+
+    /** @test */
+    public function test_sqlsrv_pushdown_completes_within_time_budget_at_village_scale()
+    {
+        $this->connectOrSkip('nusantara_perf_sqlsrv', [
+            'driver' => 'sqlsrv',
+            'host' => '127.0.0.1',
+            'port' => 1433,
+            'database' => 'testdb',
+            'username' => 'sa',
+            'password' => 'TestPassword123!',
+            'trust_server_certificate' => true,
+        ]);
+
+        config(['nusantara.connection' => 'nusantara_perf_sqlsrv']);
+
+        try {
+            $target = $this->seedGrid('nusantara_perf_sqlsrv', 'sqlsrv');
+            $this->assertGreaterThan(80000, $target['count'], 'grid must be seeded at real village-count scale (~83,000+)');
+
+            $start = microtime(true);
+            $province = (new Geocoder)->findByCoordinate($target['lat'], $target['lng'], 'province');
+            $elapsed = microtime(true) - $start;
+
+            $this->assertNotNull($province);
+            $this->assertSame($target['id'], $province->id);
+            // Generous on purpose — same reasoning as the MySQL case above:
+            // SQL Server spatial indexes need an explicit BOUNDING_BOX
+            // parameter Laravel's Blueprint::spatialIndex() doesn't support,
+            // so this package leaves it unindexed here too (not built this
+            // phase — out of scope, matching the MySQL precedent).
+            $this->assertLessThan(
+                5.0,
+                $elapsed,
+                "unindexed SQL Server STContains pushdown took {$elapsed}s against {$target['count']} rows — expected well under 5s"
+            );
+        } finally {
+            Schema::connection('nusantara_perf_sqlsrv')->dropIfExists('provinces');
         }
     }
 }

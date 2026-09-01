@@ -14,16 +14,17 @@ class BoundaryWkbQuery
 {
     /**
      * Drivers whose `selectExpression()` output has been proven against a
-     * live instance with a real committed fixture (Phase 03) — see
-     * `tests/fixtures/wkb/{driver}/`. SQL Server and SpatiaLite syntax below
-     * is per vendor documentation only; no live environment exists here to
-     * verify against yet, mirroring the same gate Phase 05 already applied
-     * to `Geocoder::findContainingRegionSpatial()` — revisit when those
-     * environments exist to verify against.
+     * live instance with a real committed fixture (Phase 03/09) — see
+     * `tests/fixtures/wkb/{driver}/`. SpatiaLite syntax below is per vendor
+     * documentation only; no environment exists here to verify against yet
+     * (PHP's PDO_SQLite build here has no loadable-extension support at
+     * all, separate from the "no container" gap SQL Server had) —
+     * mirroring the same gate `Geocoder::findContainingRegionSpatial()`
+     * applies — revisit if/when that environment exists to verify against.
      *
      * @var list<string>
      */
-    public const VERIFIED_DRIVERS = ['mysql', 'pgsql'];
+    public const VERIFIED_DRIVERS = ['mysql', 'pgsql', 'sqlsrv'];
 
     public static function isVerified(string $driver): bool
     {

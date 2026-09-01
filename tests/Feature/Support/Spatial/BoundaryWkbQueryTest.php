@@ -11,8 +11,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 /**
  * Primary correctness suite for the retrieval-query + brick/geo pipeline
  * (decision 9): decodes real WKB fixtures — committed bytes read back via
- * BoundaryWkbQuery::selectExpression() against live MySQL/PostgreSQL
- * containers by scripts/export-wkb-fixtures.php — through
+ * BoundaryWkbQuery::selectExpression() against live MySQL/PostgreSQL/SQL
+ * Server containers by scripts/export-wkb-fixtures.php — through
  * GeometryReader::decode() end-to-end. No live DB is needed to run this
  * suite; regenerating the fixtures does.
  */
@@ -38,6 +38,7 @@ class BoundaryWkbQueryTest extends TestCase
         return [
             'mysql' => ['mysql'],
             'pgsql' => ['pgsql'],
+            'sqlsrv' => ['sqlsrv'],
         ];
     }
 
@@ -64,24 +65,33 @@ class BoundaryWkbQueryTest extends TestCase
     }
 
     /**
-     * MySQL writes SRID 0, PostgreSQL writes SRID 4326 (laravel-nusantara-adr-003)
-     * — ST_AsBinary() strips SRID metadata regardless (that's the definition
-     * of plain WKB vs EWKB), so both drivers' retrieval-query output must be
+     * MySQL writes SRID 0, PostgreSQL and SQL Server write SRID 4326
+     * (laravel-nusantara-adr-003) — the WKB-retrieval functions/methods
+     * strip SRID metadata regardless (that's the definition of plain WKB
+     * vs EWKB), so all 3 drivers' retrieval-query output must be
      * byte-identical for the same coordinates. Proven directly on the
      * committed fixtures, not assumed.
      *
      * @test
      */
-    public function test_mysql_and_pgsql_wkb_fixtures_are_byte_identical()
+    public function test_mysql_pgsql_and_sqlsrv_wkb_fixtures_are_byte_identical()
     {
         $this->assertSame(
             self::fixture('mysql', 'square-polygon'),
             self::fixture('pgsql', 'square-polygon')
         );
+        $this->assertSame(
+            self::fixture('mysql', 'square-polygon'),
+            self::fixture('sqlsrv', 'square-polygon')
+        );
 
         $this->assertSame(
             self::fixture('mysql', 'two-part-multipolygon'),
             self::fixture('pgsql', 'two-part-multipolygon')
+        );
+        $this->assertSame(
+            self::fixture('mysql', 'two-part-multipolygon'),
+            self::fixture('sqlsrv', 'two-part-multipolygon')
         );
     }
 
@@ -107,9 +117,10 @@ class BoundaryWkbQueryTest extends TestCase
      * SQL Server's retrieval syntax is a method call on the column
      * (`{column}.STAsBinary()`), not a function wrapping it like the other
      * 3 drivers — explicitly asserted here rather than assumed to follow
-     * the same shape, per this phase's acceptance criteria. Not live-DB
-     * verified (no SQL Server environment exists here yet — see
-     * BoundaryWkbQuery::VERIFIED_DRIVERS).
+     * the same shape, per this phase's acceptance criteria. Live-DB
+     * verified for sqlsrv (see BoundaryWkbQuery::VERIFIED_DRIVERS);
+     * SpatiaLite's `AsBinary(boundary)` syntax is per vendor documentation
+     * only — no environment exists here to verify it.
      *
      * @test
      */
@@ -126,12 +137,12 @@ class BoundaryWkbQueryTest extends TestCase
     }
 
     /** @test */
-    public function test_only_mysql_and_pgsql_are_marked_verified()
+    public function test_mysql_pgsql_and_sqlsrv_are_marked_verified()
     {
-        $this->assertSame(['mysql', 'pgsql'], BoundaryWkbQuery::VERIFIED_DRIVERS);
+        $this->assertSame(['mysql', 'pgsql', 'sqlsrv'], BoundaryWkbQuery::VERIFIED_DRIVERS);
         $this->assertTrue(BoundaryWkbQuery::isVerified('mysql'));
         $this->assertTrue(BoundaryWkbQuery::isVerified('pgsql'));
-        $this->assertFalse(BoundaryWkbQuery::isVerified('sqlsrv'));
+        $this->assertTrue(BoundaryWkbQuery::isVerified('sqlsrv'));
         $this->assertFalse(BoundaryWkbQuery::isVerified('sqlite'));
     }
 

@@ -108,7 +108,7 @@ If your application requires geographic boundary shapes (polygons), you can down
 | MySQL | 5.6+ | `brick/geo`'s stated `PdoEngine` floor. |
 | MariaDB | 5.5+ | `brick/geo`'s stated `PdoEngine` floor. |
 | PostgreSQL + PostGIS | Any currently-supported PostGIS extension version | Neither `brick/geo` nor this package's write path states a hard floor — tied to whichever PostGIS version is installed. Empirically verified in CI against PostgreSQL 17 + PostGIS 3.5. |
-| SQL Server | 2008+ | Native `geometry` data type (used via `geometry::STGeomFromText`) was introduced in SQL Server 2008; `brick/geo` does not cover this driver at all. |
+| SQL Server | 2008+ | Native `geometry` data type (used via `geometry::STGeomFromText`) was introduced in SQL Server 2008. `brick/geo` has no SQL-Server-specific retrieval helper — this package's own `BoundaryWkbQuery` handles that (`.STAsBinary()`/`.STContains()`, method-on-column syntax); the WKB bytes themselves decode through the same driver-agnostic `brick/geo` path as every other driver. Empirically verified against SQL Server 2022. |
 | SQLite + SpatiaLite | Any version with `mod_spatialite` loaded | No hard floor stated by `brick/geo` — tied to whichever SpatiaLite extension version is installed. |
 
 `config('nusantara.boundaries.type', 'text')` (the fallback/default read path) has no spatial-extension requirement at all — it stores raw GeoJSON coordinate arrays as `LONGTEXT`.
@@ -263,16 +263,17 @@ Nusantara::isValidPostalCode('23773'); // bool, format check only
 // 14. Reverse-geocode a coordinate to the region containing it
 // (requires the 'boundary' column enabled and populated at every level
 // up to $level — see "Geographic Boundaries" above). Under
-// config('nusantara.boundaries.type', 'spatial'), MySQL and
-// PostgreSQL/PostGIS use a real DB-side ST_Contains() pushdown (spatial
-// index gets used); SQL Server and SpatiaLite boundary columns still
-// throw until their pushdown lands.
+// config('nusantara.boundaries.type', 'spatial'), MySQL, PostgreSQL/PostGIS,
+// and SQL Server all use a real DB-side containment pushdown (ST_Contains()/
+// STContains() — PostgreSQL's spatial index gets used, MySQL/SQL Server
+// don't have one yet, see "Minimum Database Version" below); SpatiaLite
+// boundary columns still throw until its pushdown lands.
 $village = Nusantara::findByCoordinate(lat: 2.931, lng: 97.484, level: 'village');
 
 // 15. Export any region as a GeoJSON Feature. Under 'spatial' storage,
-// MySQL and PostgreSQL/PostGIS decode the real boundary geometry (via the
-// optional brick/geo package) into a Polygon/MultiPolygon Feature, cached
-// per row; SQL Server/SpatiaLite still throw until their decode lands.
+// MySQL, PostgreSQL/PostGIS, and SQL Server all decode the real boundary
+// geometry (via the optional brick/geo package) into a Polygon/MultiPolygon
+// Feature, cached per row; SpatiaLite still throws until its decode lands.
 // Under 'text' storage this always works, no brick/geo needed.
 $geojson = $village->toGeoJson();
 ```

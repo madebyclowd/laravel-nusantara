@@ -119,20 +119,21 @@ class GeocoderTest extends TestCase
     public function test_find_containing_region_spatial_throws_for_a_driver_without_pushdown_support()
     {
         // Config-only fake connection (driver name is read straight from config,
-        // no actual SQL Server extension/instance needed to exercise this branch).
-        config(['database.connections.testing_sqlsrv_fake' => [
-            'driver' => 'sqlsrv',
-            'host' => 'unused',
-            'database' => 'unused',
+        // no actual SpatiaLite extension/instance needed to exercise this branch).
+        // 'sqlite' here stands in for SpatiaLite — still unverified, unlike
+        // mysql/pgsql/sqlsrv which all have real pushdown support now.
+        config(['database.connections.testing_spatialite_fake' => [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
         ]]);
 
         $method = new \ReflectionMethod(Geocoder::class, 'findContainingRegionSpatial');
         $method->setAccessible(true);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessageMatches("/does not yet support native spatial boundary columns on the 'sqlsrv' driver/");
+        $this->expectExceptionMessageMatches("/does not yet support native spatial boundary columns on the 'sqlite' driver/");
 
-        $method->invoke($this->geocoder, Province::query(), 'testing_sqlsrv_fake', 'boundary', 2.9310, 97.4845, 'province');
+        $method->invoke($this->geocoder, Province::query(), 'testing_spatialite_fake', 'boundary', 2.9310, 97.4845, 'province');
     }
 
     /** @test */
