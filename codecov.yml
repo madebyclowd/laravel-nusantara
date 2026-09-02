@@ -1,0 +1,28 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 5%
+
+flags:
+  unit:
+    paths:
+      - src/
+    carryforward: false
+  spatial:
+    paths:
+      - src/
+    # The `spatial` job only runs when spatial-relevant files change (path
+    # filtered), so most commits never upload this flag's report. Carry the
+    # last known spatial report forward instead of counting those lines as
+    # uncovered on every unrelated PR.
+    carryforward: true
+
+comment:
+  layout: 'condensed_header, condensed_files, condensed_footer'
+  require_changes: true

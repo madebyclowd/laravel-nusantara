@@ -141,6 +141,7 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
+          flags: unit
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -255,7 +256,7 @@ jobs:
         with:
           php-version: 8.3
           extensions: dom, curl, libxml, mbstring, zip, pdo, pdo_mysql, pdo_pgsql, pdo_sqlsrv, sqlsrv, sqlite, pdo_sqlite, bcmath, gd, exif, iconv
-          coverage: none
+          coverage: pcov
 
       - name: Setup Problem Matchers
         run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
@@ -291,7 +292,15 @@ jobs:
           }
 
       - name: Run spatial test suite
-        run: vendor/bin/phpunit --testsuite=Spatial
+        run: vendor/bin/phpunit --testsuite=Spatial --coverage-clover=coverage-spatial.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./coverage-spatial.xml
+          flags: spatial
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Job summary
         if: always()
